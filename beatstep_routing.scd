@@ -76,7 +76,6 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   // Route pad to currently chosen device row in matrix
   ~ccPadRow = ~deviceIndex.collect { |n|
     var ccMatrix = "ccMatrix%pad%".format(n, index).asSymbol;
-    c.action(ccMatrix, { "Pad % (BS pad %) triggered for device %".format(index, index + 9, n).postln });
     ccMatrix;
   };
   c.select(padBus, \deviceSelect, ~ccPadRow);
@@ -85,24 +84,21 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
 // Map stock CCs for knobs to knob matrix points
 [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
   var knobBus = "knobBus%".format(index).asSymbol;
-  // c.action(knobBus, { |v| "Bus % INPUT: %".format(index, v).postln });
 
   // "Mapping cc % to knob %".format(cc, index).postln;
   c.midiEncoder(knobBus, \bs, 0, cc, 1 / 127, mode: \offset, inOnly: true);
   c.saneValue(knobBus, 0.5); // middle of the range
-  // c.action(knobBus, { |v| "Received value % for knob %".format(v, index + 1).postln });
 
   // Route point to currently chosen device row in matrix
   ~ccPatchRow = ~deviceIndex.collect { |p|
     var ccMatrix = "ccMatrix%knob%".format(p, index).asSymbol;
-    c.action(ccMatrix, { |v| "Received value % for device %, knob %".format(v, p, index + 1).postln });
     ccMatrix;
   };
   c.select(knobBus, \deviceSelect, ~ccPatchRow);
 };
 
 ~h9knobCCs = (22..31);
-~h9padCCs = [71];
+~h9padCCs = [71, 17, 16, 70];
 mapDevice.value(\h9std, 6, 0, 11, ~h9knobCCs, ~h9padCCs);
 mapDevice.value(\h9max, 7, 0, 11, ~h9knobCCs, ~h9padCCs);
 
