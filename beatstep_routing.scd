@@ -1,4 +1,18 @@
 (
+var mapDevice = { |device, deviceNumber, ch, volCC, knobCCs, padCCs|
+  var ccMatrixVol = "ccMatrixVol%".format(deviceNumber).asSymbol;
+
+  knobCCs.do { |knobCC, index|
+    var ccMatrix = "ccMatrix%knob%".format(deviceNumber, index).asSymbol;
+    c.midiCC(ccMatrix, device, ch, knobCC);
+  };
+  padCCs.do { |padCC, index|
+    var ccMatrix = "ccMatrix%pad%".format(deviceNumber, index).asSymbol;
+    c.midiTriggerButton(ccMatrix, device, ch, padCC);
+  };
+  c.midiCC(ccMatrixVol, device, ch, volCC);
+};
+
 MIDIIn.connectAll;
 c = ClockWise({});
 CmdPeriod.add(c);
@@ -19,7 +33,15 @@ CmdPeriod.add(c);
 //  - ccMatrixXknobY (X = 0..7, Y = 0..15) connect device X to knob Y on the BeatStep.
 // Right now I'm leaving the main volume knob (CC #7) unmapped. It is set to absolute on the BS.
 c.midiDevice(\bs, "beatstep");
+c.midiDevice(\h9std, "H9 Standard");
+c.midiDevice(\h9max, "H9 Pedal");
+
 ~deviceIndex = (0..7);
+
+// Volume knob (or expr)
+c.midiCC(\ccMatrixVol, \bs, 0, 7);
+~volBus = ~deviceIndex.collect { |index| "ccMatrixVol%".format(index).asSymbol };
+c.select(\ccMatrixVol, \deviceSelect, ~volBus);
 
 // top row of buttons (1-8 / 0-7) = notes 44-51
 ~deviceIndex.do { |index|
@@ -58,11 +80,18 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
 
   // Route point to currently chosen device row in matrix
   ~ccPatchRow = ~deviceIndex.collect { |p|
-    var ccMatrix = "ccMatrix%knob%".format(index, p).asSymbol;
+    var ccMatrix = "ccMatrix%knob%".format(p, index).asSymbol;
     c.action(ccMatrix, { |v| "Received value % for device %, knob %".format(v, p, index + 1).postln });
     ccMatrix;
   };
   c.select(knobBus, \deviceSelect, ~ccPatchRow);
 };
+
+~h9knobCCs = (22..31);
+~h9padCCs = [71];
+mapDevice.value(\h9std, 6, 0, 11, ~h9knobCCs, ~h9padCCs);
+mapDevice.value(\h9max, 7, 0, 11, ~h9knobCCs, ~h9padCCs);
+
 c.saneAll();
+c
 )
