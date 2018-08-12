@@ -43,24 +43,24 @@ c.midiClock(\clock, \prophet, outOnly: true);
 //  - Factory defaults (control pads send MIDI notes) +
 //  - All knobs relative encoding type 1 with no speedup.
 //  - Lower row of pads (9-16) send CC 80-87. Undecided on whether toggle or gate is best yet.
-//  - Control channel: 0
-//  - Sequence channel: 1
+//  - Control channel: 0 = MIDI 1
+//  - Sequence channel: 1 = MIDI 2
 // Connections are to a ccMatrix symbol:
 //  - ccMatrixXpadY (X = 0..7, Y=0..7) connect device X to pad Y on the BeatStep.
 //  - ccMatrixXknobY (X = 0..7, Y = 0..15) connect device X to knob Y on the BeatStep.
 // Right now I'm leaving the main volume knob (CC #7) unmapped. It is set to absolute on the BS.
-
+~bs_control_channel = 15;
 ~deviceIndex = (0..7);
 
 // Volume knob (or expr)
-c.midiCC(\ccMatrixVol, \bs, 0, 7);
+c.midiCC(\ccMatrixVol, \bs, ~bs_control_channel, 7);
 ~volBus = ~deviceIndex.collect { |index| "ccMatrixVol%".format(index).asSymbol };
 c.select(\ccMatrixVol, \deviceSelect, ~volBus);
 
 // top row of buttons (1-8 / 0-7) = notes 44-51
 (0..7).do { |index|
   var padNote = index + 44;
-  c.midiRadioButton(\deviceSelect, index, \bs, 0, note: padNote);
+  c.midiRadioButton(\deviceSelect, index, \bs, ~bs_control_channel, note: padNote);
 };
 c.saneValue(\deviceSelect, 0);
 c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
@@ -71,7 +71,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   var padCC = index + 80;
   var padBus = "padBus%".format(index).asSymbol;
 
-  c.midiTriggerButton(padBus, \bs, 0, cc: padCC);
+  c.midiTriggerButton(padBus, \bs, ~bs_control_channel, cc: padCC);
 
   // Route pad to currently chosen device row in matrix
   ~ccPadRow = ~deviceIndex.collect { |n|
@@ -86,7 +86,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   var knobBus = "knobBus%".format(index).asSymbol;
 
   // "Mapping cc % to knob %".format(cc, index).postln;
-  c.midiEncoder(knobBus, \bs, 0, cc, 1 / 127, mode: \offset, inOnly: true);
+  c.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, 1 / 127, mode: \offset, inOnly: true);
   c.saneValue(knobBus, 0.5); // middle of the range
 
   // Route point to currently chosen device row in matrix
