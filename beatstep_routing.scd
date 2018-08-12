@@ -21,7 +21,7 @@ CmdPeriod.add(c);
 c.midiDevice(\bs, "beatstep");
 ~deviceIndex = (0..7);
 
-// top row of buttons (1-8 / 0-7) = notes 44-1
+// top row of buttons (1-8 / 0-7) = notes 44-51
 ~deviceIndex.do { |index|
   var padNote = index + 44;
   c.midiRadioButton(\deviceSelect, index, \bs, 0, note: padNote);
@@ -36,6 +36,8 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   var padBus = "padBus%".format(index).asSymbol;
 
   c.midiTriggerButton(padBus, \bs, 0, cc: padCC);
+
+  // Route pad to currently chosen device row in matrix
   ~ccPadRow = ~deviceIndex.collect { |n|
     var ccMatrix = "ccMatrix%pad%".format(index, n).asSymbol;
     c.action(ccMatrix, { "Pad % (BS pad %) triggered for device %".format(index, index + 9, n).postln });
@@ -44,6 +46,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   c.select(padBus, \deviceSelect, ~ccPadRow);
 };
 
+// Map stock CCs for knobs to knob matrix points
 [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
   var knobBus = "knobBus%".format(index).asSymbol;
   // c.action(knobBus, { |v| "Bus % INPUT: %".format(index, v).postln });
@@ -53,6 +56,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
   c.saneValue(knobBus, 0.5); // middle of the range
   // c.action(knobBus, { |v| "Received value % for knob %".format(v, index + 1).postln });
 
+  // Route point to currently chosen device row in matrix
   ~ccPatchRow = ~deviceIndex.collect { |p|
     var ccMatrix = "ccMatrix%knob%".format(index, p).asSymbol;
     c.action(ccMatrix, { |v| "Received value % for device %, knob %".format(v, p, index + 1).postln });
