@@ -8,7 +8,7 @@ var mapDevice = { |device, deviceNumber, ch, volCC, knobCCs, padCCs|
   };
   padCCs.do { |padCC, index|
     var ccMatrix = "ccMatrix%pad%".format(deviceNumber, index).asSymbol;
-    c.midiTriggerButton(ccMatrix, device, ch, padCC);
+    c.midiTriggerButton(ccMatrix, device, ch, cc: padCC);
   };
   c.midiCC(ccMatrixVol, device, ch, volCC);
 };
@@ -16,6 +16,24 @@ var mapDevice = { |device, deviceNumber, ch, volCC, knobCCs, padCCs|
 MIDIIn.connectAll;
 c = ClockWise({});
 CmdPeriod.add(c);
+
+// Initialize Devices
+c.midiDevice(\bs, "beatstep");
+c.midiDevice(\h9std, "H9 Standard");
+c.midiDevice(\h9max, "H9 Pedal");
+c.midiDevice(\rytm, "analog rytm");
+c.midiDevice(\dn, "Digitone");
+c.midiDevice(\moog, "subsequent 37");
+c.midiDevice(\prophet, "rev2");
+
+// Set up clocking
+c.midiClock(\clock, \rytm); // Can be master clock if it wants to.
+c.midiClock(\clock, \dn, outOnly:true);
+c.midiClock(\clock, \bs, outOnly:true);
+c.midiClock(\clock, \h9std, outOnly:true);
+c.midiClock(\clock, \h9max, outOnly:true);
+c.midiClock(\clock, \moog, outOnly: true);
+c.midiClock(\clock, \prophet, outOnly: true);
 
 // Set up BeatStep as a matrix CC controller:
 //  - buttons 0-7 choose output routing
@@ -26,15 +44,11 @@ CmdPeriod.add(c);
 //  - All knobs relative encoding type 1 with no speedup.
 //  - Lower row of pads (9-16) send CC 80-87. Undecided on whether toggle or gate is best yet.
 //  - Control channel: 0
-//  - Seq. 1 channel: 1
-//  - Seq. 2 channel: 2
+//  - Sequence channel: 1
 // Connections are to a ccMatrix symbol:
 //  - ccMatrixXpadY (X = 0..7, Y=0..7) connect device X to pad Y on the BeatStep.
 //  - ccMatrixXknobY (X = 0..7, Y = 0..15) connect device X to knob Y on the BeatStep.
 // Right now I'm leaving the main volume knob (CC #7) unmapped. It is set to absolute on the BS.
-c.midiDevice(\bs, "beatstep");
-c.midiDevice(\h9std, "H9 Standard");
-c.midiDevice(\h9max, "H9 Pedal");
 
 ~deviceIndex = (0..7);
 
@@ -44,7 +58,7 @@ c.midiCC(\ccMatrixVol, \bs, 0, 7);
 c.select(\ccMatrixVol, \deviceSelect, ~volBus);
 
 // top row of buttons (1-8 / 0-7) = notes 44-51
-~deviceIndex.do { |index|
+(0..7).do { |index|
   var padNote = index + 44;
   c.midiRadioButton(\deviceSelect, index, \bs, 0, note: padNote);
 };
@@ -53,7 +67,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
 
 // bottom row of buttons (9-16 / 8-15) = cc 80-87
 // TODO: This could perhaps use c.midiCC instead, if we want to pass the beatstep behaviours through.
-~deviceIndex.do { |index|
+(0..7).do { |index|
   var padCC = index + 80;
   var padBus = "padBus%".format(index).asSymbol;
 
@@ -61,7 +75,7 @@ c.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
 
   // Route pad to currently chosen device row in matrix
   ~ccPadRow = ~deviceIndex.collect { |n|
-    var ccMatrix = "ccMatrix%pad%".format(index, n).asSymbol;
+    var ccMatrix = "ccMatrix%pad%".format(n, index).asSymbol;
     c.action(ccMatrix, { "Pad % (BS pad %) triggered for device %".format(index, index + 9, n).postln });
     ccMatrix;
   };
