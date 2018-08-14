@@ -29,18 +29,30 @@ if (~cw.isNil.not) {
   CmdPeriod.add(c);
 
   // Initialize Devices
-  cw.midiDevice(\bs, "beatstep");
-  cw.midiDevice(\h9std, "H9 Standard");
-  cw.midiDevice(\h9max, "H9 Pedal");
-  cw.midiDevice(\rytm, "analog rytm");
-  cw.midiDevice(\dn, "Digitone");
-  cw.midiDevice(\moog, "subsequent 37");
+  cw.midiDevice(\bs,      "beatstep");
+  cw.midiDevice(\ks,      "keystep");
+  cw.midiDevice(\h9std,   "H9 Standard");
+  cw.midiDevice(\h9max,   "H9 Pedal");
+  cw.midiDevice(\rytm,    "analog rytm");
+  cw.midiDevice(\dn,      "digitone");
+  cw.midiDevice(\moog,    "subsequent 37");
   cw.midiDevice(\prophet, "rev2");
+
+  // Very simple note routing for now
+  cw.midiPerf(\keyBus, \ks, 0);
+  cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
+  // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
+  cw.midiPerf(\gch5, \dn, 4);
+  cw.midiPerf(\gch5, \moog, 4);
+  // Channel 6 is Rev2
+  cw.midiPerf(\gch6, \dn, 5);
+  cw.midiPerf(\gch6, \prophet, 5);
 
   // Set up clocking
   cw.midiClock(\clock, \rytm); // Can be master clock if it wants to.
   cw.midiClock(\clock, \dn, outOnly:true);
   cw.midiClock(\clock, \bs, outOnly:true);
+  cw.midiClock(\clock, \ks, outOnly:true);
   cw.midiClock(\clock, \h9std, outOnly:true);
   cw.midiClock(\clock, \h9max, outOnly:true);
   cw.midiClock(\clock, \moog, outOnly: true);
