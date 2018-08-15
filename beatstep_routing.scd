@@ -37,10 +37,12 @@ if (~cw.isNil.not) {
   cw.midiDevice(\dn,      "digitone");
   cw.midiDevice(\moog,    "subsequent 37");
   cw.midiDevice(\prophet, "rev2");
+  cw.midiDevice(\rtpmidi, "Virtual Raw MIDI 1-0"); // for the pi, this is the raveloxmidi rtp midi port.
 
   // Very simple note routing for now
   cw.midiPerf(\keyBus, \ks, 0);
   cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
+  cw.midiPerf(\keyBus, \rtpmidi, 0); // Also send keyboard on channel 1 out the network
   // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
   cw.midiPerf(\gch5, \dn, 4);
   cw.midiPerf(\gch5, \moog, 4);
