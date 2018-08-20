@@ -1,5 +1,7 @@
 (
-SynthDef(\sound,{arg freq=440, amp=0.1;
+s.boot;
+
+SynthDef(\sound,{arg freq=440, amp=1;
     var saw, filter, env;
 
     saw= Saw.ar(freq);
