@@ -3,7 +3,6 @@
   var cw = ClockWise({});
 
   MIDIClient.init;
-  MIDIIn.connectAll;
   CmdPeriod.add(cw);
 
   "Adding devices...".postln;
