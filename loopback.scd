@@ -6,8 +6,8 @@
   CmdPeriod.add(cw);
 
   "Adding devices...".postln;
-  cw.midiDevice(\pimidiout, "0-0" );
-  cw.midiDevice(\pimidiin, "0-1");
+  cw.midiDevice(\pimidiout, "0-0", inOnly: true);
+  cw.midiDevice(\pimidiin, "0-1", outOnly: true);
   "Devices added.".postln;
 
   "Setting up performances...".postln;
