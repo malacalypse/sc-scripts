@@ -10,6 +10,9 @@
  * As many USB or DIN midi devices as you can jam into your pi.
  */
 (
+MIDIClient.disposeClient;
+MIDIClient.init;
+MIDIIn.connectAll;
 s.latency = 0;
 s.recChannels = 2;
 s.recSampleFormat = "int24";
@@ -154,6 +157,7 @@ if (~pifx.isNil.not) {
       cw.midiDevice(\rtpin, "0-0", inOnly: true);
       cw.midiDevice(\rtpout, "0-1", outOnly: true);
       cw.midiDevice(\intctl, "1-0"); // a "dummy" bus used to re-route internal controls to/from the matrix
+      cw.midiDevice(\intctl, "IAC"); // a "dummy" bus used to re-route internal controls to/from the matrix
 
       // Very simple note routing for now
       cw.midiPerf(\keyBus, \ks, 0);
@@ -168,7 +172,7 @@ if (~pifx.isNil.not) {
       cw.midiPerf(\gch6, \prophet, 5);
 
       // Set up clocking
-      // cw.tempoClock(\tempo, \clock, ~metro);
+      cw.tempoClock(\tempo, \clock, ~metro);
 
       cw.midiClock(\clock, \rytm); // Can be master clock if it wants to.
       cw.midiClock(\clock, \dn, outOnly:true);
@@ -179,106 +183,22 @@ if (~pifx.isNil.not) {
       cw.midiClock(\clock, \moog, outOnly: true);
       cw.midiClock(\clock, \prophet, outOnly: true);
 
-      /* TODO : disentangle this stuff and figure out how to control the clock
+      /* TODO : disentangle this stuff and figure out how to control the clock */
       cw.synthArg(\tempo);
 			cw.warp(\tempo, \bpm, mul:60);
-			cw.midiEncoder(\bpm, \ff, 12, 120, 1, inOnly:true);
-			cw.midiEncoder(\bpm, \ff, 12, 121, 0.1, inOnly:true);
-			cw.warp(\bpm, \bpm10, mul:10);
-			cw.midiBend(\bpm10, \ff, 12, unmapped:true, outOnly:true);
+      cw.warp(\bpm, \bpmcc, mul: 1, add: -60);
+			cw.midiCC(\bpmcc, \intctl, 0, 7, unmapped: true, inOnly:true);
 
-			cw.midiCC(\beat, \ff, 12, 122, unmapped:true, outOnly:true);
-			cw.midiTriggerButton(\sendStart, \ff, 12, note:122);
-			cw.midiTriggerButton(\sendStart, \lp, 0, cc:19);
-			cw.action(\sendStart, {
+      cw.action(\sendStart, {
 				metro.playNextBar({
 					cw.point(\clock).distribute(\start);
 					nil;
 				});
 				"MIDI start queued up".postln;
 			});
-
-      // Timers
-
-			{
-				var t1running = false;
-
-				var t2 = 0;
-				var t2running = true;
-
-				var setUpTime = { |sym, minCC, secCC|
-					var minSym = (sym.asString ++ "min").asSymbol;
-					var secSym = (sym.asString ++ "sec").asSymbol;
-
-					cw.action(sym, { |t|
-						if (t >= 0) {
-							cw.set(minSym, (t / 60).floor);
-							cw.set(secSym, t % 60);
-						} {
-							cw.set(minSym, 100);
-							cw.set(secSym, 100);
-						}
-					});
-
-					cw.midiCC(minSym, \ff, 12, minCC, unmapped:true, outOnly:true);
-					cw.midiCC(secSym, \ff, 12, secCC, unmapped:true, outOnly:true);
-				};
-
-				var update = { |blink=false|
-					cw.set(\t1,
-						if(s.recorder.isRecording && (t1running || blink),
-						   s.recorder.duration,
-						   -1));
-					cw.set(\t2,
-						if(t2running || blink,
-						t2,
-						-1));
-				};
-
-				setUpTime.value(\t1, 124, 125);
-				setUpTime.value(\t2, 126, 127);
-
-
-
-				cw.midiTriggerButton(\t1reset, \ff, 12, 124, inOnly:true);
-				cw.action(\t1reset, {
-					s.stopRecording;
-					t1running = false;
-					update.value;
-				});
-
-				cw.midiTriggerButton(\t1run, \ff, 12, 125, inOnly:true);
-				cw.action(\t1run, {
-					t1running = t1running.not;
-					if (t1running)
-						{ s.record; }
-						{ s.pauseRecording; };
-					update.value;
-				});
-
-				cw.midiTriggerButton(\t2reset, \ff, 12, 126, inOnly:true);
-				cw.midiProgram(\t2reset, \dt, 13, inOnly:true);
-				cw.action(\t2reset, { t2 = 0; update.value; });
-
-				cw.midiTriggerButton(\t2run, \ff, 12, 127, inOnly:true);
-				cw.action(\t2run, { t2running = t2running.not; update.value; });
-
-				SystemClock.sched(0, Routine({
-					var blink = true;
-					3.yield;
-
-					loop {
-						if (t2running) { t2 = t2 + 1 };
-						blink = blink.not;
-						update.value(blink);
-						1.yield;
-					}
-				}));
-
-				update.value;
-
-			}.value;
-       */
+      cw.action(\bpm, { |v| "BPM is now %".format(v).postln; });
+      cw.action(\tempo, { |v| "Tempo is now %".format(v).postln; });
+      /* END OF TEMPO/CLOCK SECTION */
 
       // Set up BeatStep as a matrix CC controller:
       //  - buttons 0-7 choose output routing
@@ -400,7 +320,7 @@ if (~pifx.isNil.not) {
 			cw.midiCC(\dryLevel,   \intctl, 0, 35, ControlSpec(127, 0)); // knob 13
 			cw.midiCC(\revLevel,   \intctl, 0, 36); // knob 14
 			cw.midiCC(\dlyLevel,   \intctl, 0, 37); // knob 15
-			cw.midiCC(\outLevel,   \intctl, 0, 7);  // master volume
+			cw.midiCC(\outLevel,   \intctl, 0, 38);  // knob X -- unmapped for now, using master volume for tempo
 
       // Pad assignments for re-saning parameters
       cw.triggerSane(\eqSane, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]);
@@ -412,15 +332,6 @@ if (~pifx.isNil.not) {
 			cw.midiTriggerButton(\revSane, \intctl, 12, 41); // pad 11
 			cw.midiTriggerButton(\dlySane, \intctl, 12, 42); // pad 12
 			cw.midiTriggerButton(\resync,  \intctl, 12, 45); // pad 15, far right
-
-      // TODO : Update this for DN and use the assignments.
-			// DigiTone track volumes, CC #95 on each of the 8 channels
-			(0..7).do { |i|
-				var sym = "dtMix%".format(i).asSymbol;
-				cw.midiCC(sym, \intctl, i, 95);
-				cw.midiCC(sym, \dt, i, 95);
-				cw.saneValue(sym, 100/127);
-			};
 
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
@@ -451,6 +362,9 @@ if (~pifx.isNil.not) {
 	}));
 
 	~freeUp = { | self |
+    self.pbj.stop;
+    self.pbj.free;
+    self.pbj = nil;
 		self.cw.free;
 		self.cw = nil;
 		self.efx.free;
