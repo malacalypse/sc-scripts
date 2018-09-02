@@ -10,9 +10,9 @@
  * As many USB or DIN midi devices as you can jam into your pi.
  */
 (
-MIDIClient.disposeClient;
-MIDIClient.init;
-MIDIIn.connectAll;
+// MIDIClient.disposeClient;
+// MIDIClient.init;
+// MIDIIn.connectAll;
 s.latency = 0;
 s.recChannels = 2;
 s.recSampleFormat = "int24";
@@ -332,6 +332,11 @@ if (~pifx.isNil.not) {
 			cw.midiTriggerButton(\revSane, \intctl, 12, 41); // pad 11
 			cw.midiTriggerButton(\dlySane, \intctl, 12, 42); // pad 12
 			cw.midiTriggerButton(\resync,  \intctl, 12, 45); // pad 15, far right
+      cw.action(\eqSane, { "EQ Sane triggered.".postln; });
+      cw.action(\efxSane, { "EFX Sane triggered.".postln; });
+      cw.action(\revSane, { "Reverb Sane triggered.".postln; });
+      cw.action(\dlySane, { "Delay Sane triggered.".postln; });
+      cw.action(\resync, { "Resync triggered.".postln; });
 
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
