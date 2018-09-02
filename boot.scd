@@ -1,4 +1,4 @@
 s.waitForBoot {
-  "beatstep_routing.scd".loadRelative;
+  "pifx.scd".loadRelative;
   "Hail Satan and rock on!".postln;
 }
