@@ -1,14 +1,14 @@
 /***
- * pifx.scd : Effects stack and MIDI Router
- *
- * With deep appreciation to Mark Lentczner (https://github.com/mzero)
- * A lot of this code is borrowed or outright stolen from his genius pbj script.
- *
- * Requires:
- * https://github.com/mzero/crunch-clockwise
- * At least one stereo input and one stereo output
- * As many USB or DIN midi devices as you can jam into your pi.
- */
+* pifx.scd : Effects stack and MIDI Router
+*
+* With deep appreciation to Mark Lentczner (https://github.com/mzero)
+* A lot of this code is borrowed or outright stolen from his genius pbj script.
+*
+* Requires:
+* https://github.com/mzero/crunch-clockwise
+* At least one stereo input and one stereo output
+* As many USB or DIN midi devices as you can jam into your pi.
+*/
 (
 // MIDIClient.disposeClient;
 // MIDIClient.init;
@@ -18,97 +18,97 @@ s.recChannels = 2;
 s.recSampleFormat = "int24";
 
 if (~pifx.isNil.not) {
-    // clean up any old one hangin' around
-    var pifx = ~pifx;
-    ~pifx = nil;
-    protect { pifx.freeUp };
+  // clean up any old one hangin' around
+  var pifx = ~pifx;
+  ~pifx = nil;
+  protect { pifx.freeUp };
 };
 
 ~pifx = Environment.make { |self|
   var metro;
 
-	self.know = true;
+  self.know = true;
 
-	~server = s;
-	~metro = metro = TempoClock(self.efx, 111/60);
+  ~server = s;
+  ~metro = metro = TempoClock(self.efx, 111/60);
 
-	~gateRates = [0, 8, 6, 4, 3, 2, 1, 0.5];
-		// divisions of a beat, 0 means none
+  ~gateRates = [0, 8, 6, 4, 3, 2, 1, 0.5];
+  // divisions of a beat, 0 means none
 
   Routine({
-		~beatSyncBus = Bus.control(s, 1);
+    ~beatSyncBus = Bus.control(s, 1);
 
     // MZero's kickass delay/reverb synched effects stack
-		~pbj = {
+    ~pbj = {
       arg tempo = 2,
-          beatsPerBar = 4,
-          gateSelect = 0,
-          hpSweep = 20, lpSweep = 20000,
-          dlyLevel = 0.0, dlyMix = -0.75, dlyBeats = 8, dlyDecay = 1.4, dlyPos = -0.3,
-			    revLevel = 0.2, revRoom = 0.6, revDamp = 0.7,
-			    dryLevel = 0.8,
-			    loGainDb = 0.0, midGainDb = 0.0, hiGainDb = 0.0, loFreq = 80, hiFreq = 2000,
-			    outLevel = 0.7
-			;
+      beatsPerBar = 4,
+      gateSelect = 0,
+      hpSweep = 20, lpSweep = 20000,
+      dlyLevel = 0.0, dlyMix = -0.75, dlyBeats = 8, dlyDecay = 1.4, dlyPos = -0.3,
+      revLevel = 0.2, revRoom = 0.6, revDamp = 0.7,
+      dryLevel = 0.8,
+      loGainDb = 0.0, midGainDb = 0.0, hiGainDb = 0.0, loFreq = 80, hiFreq = 2000,
+      outLevel = 0.7
+      ;
 
-			var beat = Phasor.ar(InTrig.kr(~beatSyncBus.index), tempo / s.sampleRate, 0, beatsPerBar);
-			// a useful ar signal that is the beat within the bar
+      var beat = Phasor.ar(InTrig.kr(~beatSyncBus.index), tempo / s.sampleRate, 0, beatsPerBar);
+      // a useful ar signal that is the beat within the bar
 
-			var in = SoundIn.ar([0,1]);
+      var in = SoundIn.ar([0,1]);
 
-			var sweepHi = BHiPass.ar(in,       Lag2UD.kr(hpSweep, 0.05, 0.01));
-			var sweepLo = BLowPass.ar(sweepHi, Lag2UD.kr(lpSweep, 0.05, 0.01));
-			var sweep = sweepLo;
+      var sweepHi = BHiPass.ar(in,       Lag2UD.kr(hpSweep, 0.05, 0.01));
+      var sweepLo = BLowPass.ar(sweepHi, Lag2UD.kr(lpSweep, 0.05, 0.01));
+      var sweep = sweepLo;
 
-			// these feel better than the more severe BLowPass4 / BHiPass4
-			// or the less sever LPF / HPF
+      // these feel better than the more severe BLowPass4 / BHiPass4
+      // or the less sever LPF / HPF
 
-			var gateRate = Select.kr(gateSelect, ~gateRates);
-			var gateOn = Lag2UD.kr(gateSelect > 0, 0.05, 0.05);
-			var gate = Lag2UD.ar((beat * gateRate).frac < 0.5, 0.005, 0.010);
-			var gated = sweep * (gate * gateOn + (1 - gateOn));
+      var gateRate = Select.kr(gateSelect, ~gateRates);
+      var gateOn = Lag2UD.kr(gateSelect > 0, 0.05, 0.05);
+      var gate = Lag2UD.ar((beat * gateRate).frac < 0.5, 0.005, 0.010);
+      var gated = sweep * (gate * gateOn + (1 - gateOn));
 
-			var sig = gated;
+      var sig = gated;
 
-			var slowestTempo = 50/60;
-			var slowest16th  = slowestTempo.reciprocal/4;
-			var maxDelay     = 16*slowest16th;
+      var slowestTempo = 50/60;
+      var slowest16th  = slowestTempo.reciprocal/4;
+      var maxDelay     = 16*slowest16th;
 
-			var time16th = Lag2.kr(tempo.reciprocal/4, 0.75);
-			var dlyTime  =  Lag2.kr(dlyBeats*time16th,  0.75);
+      var time16th = Lag2.kr(tempo.reciprocal/4, 0.75);
+      var dlyTime  =  Lag2.kr(dlyBeats*time16th,  0.75);
 
-			var dlyFixL  = CombL.ar(sig[0], 3*slowest16th, 3*time16th, dlyDecay);
-			var dlyFixR  = CombL.ar(sig[1], 5*slowest16th, 5*time16th, dlyDecay);
-			var dlyVar   =  CombL.ar(sig,   16*slowest16th, dlyTime,    dlyDecay);
-			var dly      = LeakDC.ar(XFade2.ar([dlyFixL, dlyFixR], dlyVar, dlyMix)) * dlyLevel;
-			var splitDly = Pan2.ar(dly, dlyPos);
-			var dlyToMix = [splitDly[0][0], splitDly[1][0]];
-			var dlyToRev = [splitDly[0][1], splitDly[1][1]];
+      var dlyFixL  = CombL.ar(sig[0], 3*slowest16th, 3*time16th, dlyDecay);
+      var dlyFixR  = CombL.ar(sig[1], 5*slowest16th, 5*time16th, dlyDecay);
+      var dlyVar   =  CombL.ar(sig,   16*slowest16th, dlyTime,    dlyDecay);
+      var dly      = LeakDC.ar(XFade2.ar([dlyFixL, dlyFixR], dlyVar, dlyMix)) * dlyLevel;
+      var splitDly = Pan2.ar(dly, dlyPos);
+      var dlyToMix = [splitDly[0][0], splitDly[1][0]];
+      var dlyToRev = [splitDly[0][1], splitDly[1][1]];
 
-			var rev = FreeVerb2.ar(
-				sig[0] + dlyToRev[0],
-				sig[1] + dlyToRev[1],
-				mix:1, room:revRoom, damp:revDamp,
-				mul: revLevel);
+      var rev = FreeVerb2.ar(
+        sig[0] + dlyToRev[0],
+        sig[1] + dlyToRev[1],
+        mix:1, room:revRoom, damp:revDamp,
+        mul: revLevel);
 
-			var dry = sig * dryLevel;
+      var dry = sig * dryLevel;
 
-			var sum = Mix.new([dry, rev, dlyToMix]);
+      var sum = Mix.new([dry, rev, dlyToMix]);
 
-			var eqL = sum * midGainDb.dbamp;
-			var eqM = BLowShelf.ar(eqL, loFreq, db:(loGainDb - midGainDb));
-			var eqH = BHiShelf.ar(eqM, hiFreq, db:(hiGainDb - midGainDb));
+      var eqL = sum * midGainDb.dbamp;
+      var eqM = BLowShelf.ar(eqL, loFreq, db:(loGainDb - midGainDb));
+      var eqH = BHiShelf.ar(eqM, hiFreq, db:(hiGainDb - midGainDb));
 
-			var eqAll = eqH;
+      var eqAll = eqH;
 
-			Out.ar(0,  eqAll * outLevel);
+      Out.ar(0,  eqAll * outLevel);
     }.play;
 
     ~server.sync;
 
-		~cw = {
-			var cw = ClockWise(~pbj);
-			CmdPeriod.add(cw);
+    ~cw = {
+      var cw = ClockWise(~pbj);
+      CmdPeriod.add(cw);
 
       // Used to take the whole stack of knob, pad, and volume CCs and route
       //  the entire set to a new destination, sort of like a column switch on a
@@ -183,23 +183,23 @@ if (~pifx.isNil.not) {
 
       /* TODO : disentangle this stuff and figure out how to control the clock */
       cw.synthArg(\tempo);
-			cw.warp(\tempo, \bpm, mul:60);
+      cw.warp(\tempo, \bpm, mul:60);
       cw.warp(\bpm, \ccMatrixVol7, mul: 1/127, add: -60/127);
 
       cw.action(\sendStart, {
-				metro.playNextBar({
-					cw.point(\clock).distribute(\start);
-					nil;
-				});
-				"MIDI start queued up".postln;
-			});
+        metro.playNextBar({
+          cw.point(\clock).distribute(\start);
+          nil;
+        });
+        "MIDI start queued up".postln;
+      });
       cw.action(\sendStop, {
-				metro.playNextBar({
-					cw.point(\clock).distribute(\stop);
-					nil;
-				});
-				"MIDI stop triggered.".postln;
-			});
+        metro.playNextBar({
+          cw.point(\clock).distribute(\stop);
+          nil;
+        });
+        "MIDI stop triggered.".postln;
+      });
       cw.midiTriggerButton(\sendStart, \bs, note: 119);
       cw.midiTriggerButton(\sendStop, \bs, note: 118);
       cw.action(\bpm, { |v| "BPM is now %".format(v).postln; });
@@ -270,45 +270,45 @@ if (~pifx.isNil.not) {
       // Set up synthArgs and Actions for internal controls, all on device 7
       cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); }); // pad 15, far right.
 
-			// 3 Band Eq
-			cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb); // knob 9
-			cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
-			cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb); // knob 1
-			cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq); // knob 10
-			cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
+      // 3 Band Eq
+      cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb); // knob 9
+      // cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
+      cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb); // knob 1
+      cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq); // knob 10
+      cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
 
-			// Stutter Gate
-			cw.synthArg(\ccMatrix7knob11, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 12
+      // Stutter Gate
+      cw.synthArg(\ccMatrix7knob11, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 12
 
       // Reverb
-			cw.synthArg(\ccMatrix7knob1, nil, \revRoom); // knob 2
-			cw.synthArg(\ccMatrix7knob2, nil, \revDamp); // knob 3
+      cw.synthArg(\ccMatrix7knob1, nil, \revRoom); // knob 2
+      cw.synthArg(\ccMatrix7knob2, nil, \revDamp); // knob 3
 
       // Delay
-			cw.synthArg(\ccMatrix7knob3, ControlSpec(0, 15), \dlyDecay); // knob 4
+      cw.synthArg(\ccMatrix7knob3, ControlSpec(0, 15), \dlyDecay); // knob 4
       cw.synthArg(\ccMatrix7knob4, \bipolar.asSpec, \dlyMix); // knob 5
-			cw.synthArg(\ccMatrix7knob5, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 6
-			cw.synthArg(\ccMatrix7knob6, \bipolar.asSpec, \dlyPos); // knob 7
+      cw.synthArg(\ccMatrix7knob5, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 6
+      cw.synthArg(\ccMatrix7knob6, \bipolar.asSpec, \dlyPos); // knob 7
 
       // Effects
-			cw.synthArg(\ccMatrix7knob9, \freq.asSpec, \hpSweep); // knob 10
-			cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 11
+      cw.synthArg(\ccMatrix7knob9, \freq.asSpec, \hpSweep); // knob 10
+      cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 11
 
       // Levels
       // \amp.asSpec might be more common here
       // but it doesn't give as fine a control
       // over the extreme end, which in this case
       // is more useful
-			cw.synthArg(\ccMatrix7knob12, ControlSpec(127, 0), \dryLevel); // knob 13
-			cw.synthArg(\ccMatrix7knob13, nil, \revLevel);   // knob 14
-			cw.synthArg(\ccMatrix7knob14, nil, \dlyLevel);   // knob 15
-			cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
+      cw.synthArg(\ccMatrix7knob12, ControlSpec(127, 0), \dryLevel); // knob 13
+      cw.synthArg(\ccMatrix7knob13, nil, \revLevel);   // knob 14
+      cw.synthArg(\ccMatrix7knob14, nil, \dlyLevel);   // knob 15
+      // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
       // Pad assignments for re-saning parameters
       cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
-			cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
-			cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
-			cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
+      cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
+      cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
+      cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
 
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
@@ -319,35 +319,35 @@ if (~pifx.isNil.not) {
       // TODO : Is this still needed?
       cw.saneAll();
 
-			cw;
-		}.value;
+      cw;
+    }.value;
 
     1.sleep;
-		~cw.syncAll;
+    ~cw.syncAll;
   }).play;
 
   ~metro.playNextBar(Routine({
-		loop {
-			var beat = metro.beatInBar.floor;
-			if (beat == 0) {
-				~beatSyncBus.set(1);   // doesn't matter what it is set to, just > 0
-			};
-			~cw.set(\beat, beat + 1);  // humans count from 1
+    loop {
+      var beat = metro.beatInBar.floor;
+      if (beat == 0) {
+        ~beatSyncBus.set(1);   // doesn't matter what it is set to, just > 0
+      };
+      ~cw.set(\beat, beat + 1);  // humans count from 1
 
-			1.yield;
-		}
-	}));
+      1.yield;
+    }
+  }));
 
-	~freeUp = { | self |
+  ~freeUp = { | self |
     self.pbj.stop;
     self.pbj.free;
     self.pbj = nil;
-		self.cw.free;
-		self.cw = nil;
-		self.efx.free;
-		self.efx = nil;
-		self.metro.stop;
-		self.metro = nil;
-	}
+    self.cw.free;
+    self.cw = nil;
+    self.efx.free;
+    self.efx = nil;
+    self.metro.stop;
+    self.metro = nil;
+  }
 };
 )
