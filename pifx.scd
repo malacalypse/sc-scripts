@@ -156,8 +156,6 @@ if (~pifx.isNil.not) {
       // RTP Midi Virtual MIDI ports
       cw.midiDevice(\rtpin, "0-0", inOnly: true);
       cw.midiDevice(\rtpout, "0-1", outOnly: true);
-      cw.midiDevice(\intctl, "1-0"); // a "dummy" bus used to re-route internal controls to/from the matrix
-      cw.midiDevice(\intctl, "IAC"); // a "dummy" bus used to re-route internal controls to/from the matrix
 
       // Very simple note routing for now
       cw.midiPerf(\keyBus, \ks, 0);
@@ -186,8 +184,7 @@ if (~pifx.isNil.not) {
       /* TODO : disentangle this stuff and figure out how to control the clock */
       cw.synthArg(\tempo);
 			cw.warp(\tempo, \bpm, mul:60);
-      cw.warp(\bpm, \bpmcc, mul: 1, add: -60);
-			cw.midiCC(\bpmcc, \intctl, 0, 7, unmapped: true, inOnly:true);
+      cw.warp(\bpm, \ccMatrixVol7, mul: 1/127, add: -60/127);
 
       cw.action(\sendStart, {
 				metro.playNextBar({
@@ -196,8 +193,16 @@ if (~pifx.isNil.not) {
 				});
 				"MIDI start queued up".postln;
 			});
+      cw.action(\sendStop, {
+				metro.playNextBar({
+					cw.point(\clock).distribute(\stop);
+					nil;
+				});
+				"MIDI stop triggered.".postln;
+			});
+      cw.midiTriggerButton(\sendStart, \bs, note: 119);
+      cw.midiTriggerButton(\sendStop, \bs, note: 118);
       cw.action(\bpm, { |v| "BPM is now %".format(v).postln; });
-      cw.action(\tempo, { |v| "Tempo is now %".format(v).postln; });
       /* END OF TEMPO/CLOCK SECTION */
 
       // Set up BeatStep as a matrix CC controller:
@@ -262,81 +267,48 @@ if (~pifx.isNil.not) {
       };
       // End of hardware init and core routing.
 
-      // Set up synthArgs and Actions for internal controls
-      cw.action(\resync, { cw.syncAll(); });
+      // Set up synthArgs and Actions for internal controls, all on device 7
+      cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); }); // pad 15, far right.
 
 			// 3 Band Eq
-			cw.synthArg(\loGainDb, \boostcut.asSpec);
-			cw.synthArg(\midGainDb, \boostcut.asSpec);
-			cw.synthArg(\hiGainDb, \boostcut.asSpec);
-			cw.synthArg(\loFreq, \midfreq.asSpec);
-			cw.synthArg(\hiFreq, ControlSpec(440, 10000, \exp));
+			cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb); // knob 9
+			cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
+			cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb); // knob 1
+			cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq); // knob 10
+			cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
 
 			// Stutter Gate
-			cw.synthArg(\gateSelect, ControlSpec(0, ~gateRates.size));
+			cw.synthArg(\ccMatrix7knob11, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 12
 
       // Reverb
-			cw.synthArg(\revRoom);
-			cw.synthArg(\revDamp);
+			cw.synthArg(\ccMatrix7knob1, nil, \revRoom); // knob 2
+			cw.synthArg(\ccMatrix7knob2, nil, \revDamp); // knob 3
 
       // Delay
-			cw.synthArg(\dlyDecay, ControlSpec(0, 15));
-      cw.synthArg(\dlyMix, \bipolar.asSpec);
-			cw.synthArg(\dlyBeats, ControlSpec(1, 16, 'lin', 1));
-			cw.synthArg(\dlyPos, \bipolar.asSpec);
+			cw.synthArg(\ccMatrix7knob3, ControlSpec(0, 15), \dlyDecay); // knob 4
+      cw.synthArg(\ccMatrix7knob4, \bipolar.asSpec, \dlyMix); // knob 5
+			cw.synthArg(\ccMatrix7knob5, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 6
+			cw.synthArg(\ccMatrix7knob6, \bipolar.asSpec, \dlyPos); // knob 7
 
       // Effects
-			cw.synthArg(\hpSweep, \freq.asSpec);
-			cw.synthArg(\lpSweep, \freq.asSpec);
+			cw.synthArg(\ccMatrix7knob9, \freq.asSpec, \hpSweep); // knob 10
+			cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 11
 
       // Levels
-			cw.synthArg(\dryLevel);  // \amp.asSpec might be more common here
-			cw.synthArg(\revLevel);  // but it doesn't give as fine a control
-			cw.synthArg(\dlyLevel);  // over the extreme end, which in this case
-			cw.synthArg(\outLevel);  // is more useful
-
-      // Map all the controls to Device 7
-
-      // Eqish things
-      cw.midiCC(\hiGainDb,   \intctl, 0, 22);  // knob 0
-			cw.midiCC(\hiFreq,     \intctl, 0, 23);  // knob 1
-      cw.midiCC(\loGainDb,   \intctl, 0, 30);  // knob 8
-			cw.midiCC(\loFreq,     \intctl, 0, 31);  // knob 9
-      cw.midiCC(\midGainDb,  \intctl, 0, 21);  // knob X -- unmapped for now, let's see if I need it.
-
-      // Effects
-			cw.midiCC(\revRoom,    \intctl, 0, 24); // knob 2
-			cw.midiCC(\revDamp,    \intctl, 0, 25); // knob 3
-			cw.midiCC(\dlyDecay,   \intctl, 0, 26); // knob 4
-			cw.midiCC(\dlyMix,     \intctl, 0, 27); // knob 5
-			cw.midiCC(\dlyBeats,   \intctl, 0, 28); // knob 6
-			cw.midiCC(\dlyPos,     \intctl, 0, 29); // knob 7
-
-      cw.midiCC(\hpSweep,    \intctl, 0, 32); // knob 10
-			cw.midiCC(\lpSweep,    \intctl, 0, 33); // knob 11
-			cw.midiCC(\gateSelect, \intctl, 0, 34); // knob 12
-
-      // Mixing
-			cw.midiCC(\dryLevel,   \intctl, 0, 35, ControlSpec(127, 0)); // knob 13
-			cw.midiCC(\revLevel,   \intctl, 0, 36); // knob 14
-			cw.midiCC(\dlyLevel,   \intctl, 0, 37); // knob 15
-			cw.midiCC(\outLevel,   \intctl, 0, 38);  // knob X -- unmapped for now, using master volume for tempo
+      // \amp.asSpec might be more common here
+      // but it doesn't give as fine a control
+      // over the extreme end, which in this case
+      // is more useful
+			cw.synthArg(\ccMatrix7knob12, ControlSpec(127, 0), \dryLevel); // knob 13
+			cw.synthArg(\ccMatrix7knob13, nil, \revLevel);   // knob 14
+			cw.synthArg(\ccMatrix7knob14, nil, \dlyLevel);   // knob 15
+			cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
       // Pad assignments for re-saning parameters
-      cw.triggerSane(\eqSane, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]);
-			cw.triggerSane(\revSane, [\revRoom, \revDamp]);
-			cw.triggerSane(\dlySane, [\dlyDecay, \dlyMix, \dlyBeats]);
-			cw.triggerSane(\efxSane, [\hpSweep, \lpSweep, \gateSelect]);
-			cw.midiTriggerButton(\eqSane,  \intctl, 12, 38); // pad 8, far left
-			cw.midiTriggerButton(\efxSane, \intctl, 12, 40); // pad 10
-			cw.midiTriggerButton(\revSane, \intctl, 12, 41); // pad 11
-			cw.midiTriggerButton(\dlySane, \intctl, 12, 42); // pad 12
-			cw.midiTriggerButton(\resync,  \intctl, 12, 45); // pad 15, far right
-      cw.action(\eqSane, { "EQ Sane triggered.".postln; });
-      cw.action(\efxSane, { "EFX Sane triggered.".postln; });
-      cw.action(\revSane, { "Reverb Sane triggered.".postln; });
-      cw.action(\dlySane, { "Delay Sane triggered.".postln; });
-      cw.action(\resync, { "Resync triggered.".postln; });
+      cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
+			cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
+			cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
+			cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
 
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
