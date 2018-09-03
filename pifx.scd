@@ -16,7 +16,6 @@
 s.latency = 0;
 s.recChannels = 2;
 s.recSampleFormat = "int24";
-o = OSCresponderNode(s.addr, '/tr', { |time, resp, msg| msg.postln }).add;
 
 if (~pifx.isNil.not) {
   // clean up any old one hangin' around
@@ -101,11 +100,6 @@ if (~pifx.isNil.not) {
       var eqH = BHiShelf.ar(eqM, hiFreq, db:(hiGainDb - midGainDb));
 
       var eqAll = eqH;
-
-      // Debug stack
-      SendTrig.kr(Impulse.kr(0.5), 0, dryLevel);
-      SendTrig.kr(Impulse.kr(0.5), 1, revLevel);
-      SendTrig.kr(Impulse.kr(0.5), 1, dlyLevel);
 
       Out.ar(0,  eqAll * outLevel);
     }.play;
