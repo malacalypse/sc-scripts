@@ -278,30 +278,30 @@ if (~pifx.isNil.not) {
       cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
 
       // Stutter Gate
-      cw.synthArg(\ccMatrix7knob11, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 12
+      cw.synthArg(\ccMatrix7knob12, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 13
 
       // Reverb
-      cw.synthArg(\ccMatrix7knob1, nil, \revRoom); // knob 2
-      cw.synthArg(\ccMatrix7knob2, nil, \revDamp); // knob 3
+      cw.synthArg(\ccMatrix7knob2, nil, \revRoom); // knob 3
+      cw.synthArg(\ccMatrix7knob3, nil, \revDamp); // knob 4
 
       // Delay
-      cw.synthArg(\ccMatrix7knob3, ControlSpec(0, 15), \dlyDecay); // knob 4
-      cw.synthArg(\ccMatrix7knob4, \bipolar.asSpec, \dlyMix); // knob 5
-      cw.synthArg(\ccMatrix7knob5, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 6
-      cw.synthArg(\ccMatrix7knob6, \bipolar.asSpec, \dlyPos); // knob 7
+      cw.synthArg(\ccMatrix7knob4, ControlSpec(0, 15), \dlyDecay); // knob 5
+      cw.synthArg(\ccMatrix7knob5, \bipolar.asSpec, \dlyMix); // knob 6
+      cw.synthArg(\ccMatrix7knob6, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 7
+      cw.synthArg(\ccMatrix7knob7, \bipolar.asSpec, \dlyPos); // knob 8
 
       // Effects
-      cw.synthArg(\ccMatrix7knob9, \freq.asSpec, \hpSweep); // knob 10
-      cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 11
+      cw.synthArg(\ccMatrix7knob10, \freq.asSpec, \hpSweep); // knob 11
+      cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 12
 
       // Levels
       // \amp.asSpec might be more common here
       // but it doesn't give as fine a control
       // over the extreme end, which in this case
       // is more useful
-      cw.synthArg(\ccMatrix7knob12, ControlSpec(127, 0), \dryLevel); // knob 13
-      cw.synthArg(\ccMatrix7knob13, ControlSpec(127, 0), \revLevel);   // knob 14
-      cw.synthArg(\ccMatrix7knob14, ControlSpec(127, 0), \dlyLevel);   // knob 15
+      cw.synthArg(\ccMatrix7knob13, ControlSpec(1, 0), \dryLevel); // knob 14
+      cw.synthArg(\ccMatrix7knob14, nil, \revLevel);   // knob 15
+      cw.synthArg(\ccMatrix7knob15, nil, \dlyLevel);   // knob 16
 
       (0..15).do { |i|
         var knobSym = "ccMatrix7knob%".format(i).asSymbol;
