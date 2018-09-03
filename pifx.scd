@@ -272,7 +272,7 @@ if (~pifx.isNil.not) {
 
       // 3 Band Eq
       cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb); // knob 9
-      // cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
+      cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
       cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb); // knob 1
       cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq); // knob 10
       cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
@@ -281,13 +281,13 @@ if (~pifx.isNil.not) {
       cw.synthArg(\ccMatrix7knob12, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 13
 
       // Reverb
-      cw.synthArg(\ccMatrix7knob2, nil, \revRoom); // knob 3
-      cw.synthArg(\ccMatrix7knob3, nil, \revDamp); // knob 4
+      cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \revRoom); // knob 3
+      cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \revDamp); // knob 4
 
       // Delay
-      cw.synthArg(\ccMatrix7knob4, ControlSpec(0, 15), \dlyDecay); // knob 5
+      cw.synthArg(\ccMatrix7knob4, \decay.asSpec, \dlyDecay); // knob 5
       cw.synthArg(\ccMatrix7knob5, \bipolar.asSpec, \dlyMix); // knob 6
-      cw.synthArg(\ccMatrix7knob6, ControlSpec(1, 16, 'lin', 1), \dlyBeats); // knob 7
+      cw.synthArg(\ccMatrix7knob6, \rate.asSpec, \dlyBeats); // knob 7
       cw.synthArg(\ccMatrix7knob7, \bipolar.asSpec, \dlyPos); // knob 8
 
       // Effects
@@ -295,13 +295,9 @@ if (~pifx.isNil.not) {
       cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 12
 
       // Levels
-      // \amp.asSpec might be more common here
-      // but it doesn't give as fine a control
-      // over the extreme end, which in this case
-      // is more useful
-      cw.synthArg(\ccMatrix7knob13, nil, \dryLevel); // knob 14
-      cw.synthArg(\ccMatrix7knob14, nil, \revLevel);   // knob 15
-      cw.synthArg(\ccMatrix7knob15, nil, \dlyLevel);   // knob 16
+      cw.synthArg(\ccMatrix7knob13, \amp.asSpec, \dryLevel); // knob 14
+      cw.synthArg(\ccMatrix7knob14, \amp.asSpec, \revLevel);   // knob 15
+      cw.synthArg(\ccMatrix7knob15, \amp.asSpec, \dlyLevel);   // knob 16
 
       // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
