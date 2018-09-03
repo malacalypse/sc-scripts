@@ -16,6 +16,7 @@
 s.latency = 0;
 s.recChannels = 2;
 s.recSampleFormat = "int24";
+o = OSCresponderNode(s.addr, '/tr', { |time, resp, msg| msg.postln }).add;
 
 if (~pifx.isNil.not) {
   // clean up any old one hangin' around
@@ -100,6 +101,11 @@ if (~pifx.isNil.not) {
       var eqH = BHiShelf.ar(eqM, hiFreq, db:(hiGainDb - midGainDb));
 
       var eqAll = eqH;
+
+      // Debug stack
+      SendTrig.kr(Impulse.kr(0.5), 0, dryLevel);
+      SendTrig.kr(Impulse.kr(0.5), 1, revLevel);
+      SendTrig.kr(Impulse.kr(0.5), 1, dlyLevel);
 
       Out.ar(0,  eqAll * outLevel);
     }.play;
@@ -206,15 +212,15 @@ if (~pifx.isNil.not) {
       /* END OF TEMPO/CLOCK SECTION */
 
       // Set up BeatStep as a matrix CC controller:
-      //  - buttons 0-7 choose output routing
-      //  - buttons 8-15 send their note values to the note matrix
-      //  - knobs   0-15 are routed to the CC matrix patch points 1-16 for the selected device 0-7
+      //  - buttons 0-7 choose output routing (devices 0..7, 7 is the internal effects stack)
+      //  - buttons 8-15 send cc to pad matrix.
+      //  - knobs   0-15 are routed to knob matrix.
       // Beatstep configuration:
       //  - Factory defaults (control pads send MIDI notes) +
-      //  - All knobs relative encoding type 1 with no speedup.
-      //  - Lower row of pads (9-16) send CC 80-87. Undecided on whether toggle or gate is best yet.
-      //  - Control channel: 0 = MIDI 1
-      //  - Sequence channel: 1 = MIDI 2
+      //  - All knobs except volume: relative encoding type 1 with no speedup +
+      //  - Lower row of pads (9-16) send CC 80-87, gate mode +
+      //  - Control channel: 15 = MIDI 16 / set as default global channel +
+      //  - Sequence channel: 0 = MIDI 1.
       // Connections are to a ccMatrix symbol:
       //  - ccMatrixXpadY (X = 0..7, Y=0..7) connect device X to pad Y on the BeatStep.
       //  - ccMatrixXknobY (X = 0..7, Y = 0..15) connect device X to knob Y on the BeatStep.
@@ -223,9 +229,9 @@ if (~pifx.isNil.not) {
       ~deviceIndex = (0..7);
 
       // Volume knob (or expr)
-      cw.midiCC(\ccMatrixVol, \bs, ~bs_control_channel, 7);
+      cw.midiCC(\ccMatrixVolIn, \bs, ~bs_control_channel, 7);
       ~volBus = ~deviceIndex.collect { |index| "ccMatrixVol%".format(index).asSymbol };
-      cw.select(\ccMatrixVol, \deviceSelect, ~volBus);
+      cw.select(\ccMatrixVolIn, \deviceSelect, ~volBus);
 
       // top row of buttons (1-8 / 0-7) = notes 44-51
       (0..7).do { |index|
@@ -239,7 +245,7 @@ if (~pifx.isNil.not) {
       // TODO: This could perhaps use cw.midiCC instead, if we want to pass the beatstep behaviours through.
       (0..7).do { |index|
         var padCC = index + 80;
-        var padBus = "padBus%".format(index).asSymbol;
+        var padBus = "ccMatrix%padIn".format(index).asSymbol;
 
         cw.midiTriggerButton(padBus, \bs, ~bs_control_channel, cc: padCC);
 
@@ -253,7 +259,7 @@ if (~pifx.isNil.not) {
 
       // Map stock CCs for knobs to knob matrix points
       [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
-        var knobBus = "knobBus%".format(index).asSymbol;
+        var knobBus = "ccMatrix%knobIn".format(index).asSymbol;
 
         cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, mode: \offset, inOnly: true);
         cw.saneValue(knobBus, 0.5); // middle of the range
@@ -268,36 +274,36 @@ if (~pifx.isNil.not) {
       // End of hardware init and core routing.
 
       // Set up synthArgs and Actions for internal controls, all on device 7
-      cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); }); // pad 15, far right.
+      cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); });
 
       // 3 Band Eq
-      cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb); // knob 9
+      cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb);
       cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
-      cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb); // knob 1
-      cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq); // knob 10
-      cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq); // knob 2
+      cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb);
+      cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq);
+      cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq);
 
       // Stutter Gate
-      cw.synthArg(\ccMatrix7knob12, ControlSpec(0, ~gateRates.size), \gateSelect); // knob 13
+      cw.synthArg(\ccMatrix7knob12, ControlSpec(0, ~gateRates.size), \gateSelect);
 
       // Reverb
-      cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \revRoom); // knob 3
-      cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \revDamp); // knob 4
+      cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \revRoom);
+      cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \revDamp);
 
       // Delay
-      cw.synthArg(\ccMatrix7knob4, \decay.asSpec, \dlyDecay); // knob 5
-      cw.synthArg(\ccMatrix7knob5, \bipolar.asSpec, \dlyMix); // knob 6
-      cw.synthArg(\ccMatrix7knob6, \rate.asSpec, \dlyBeats); // knob 7
-      cw.synthArg(\ccMatrix7knob7, \bipolar.asSpec, \dlyPos); // knob 8
+      cw.synthArg(\ccMatrix7knob4, \decay.asSpec, \dlyDecay);
+      cw.synthArg(\ccMatrix7knob5, \bipolar.asSpec, \dlyMix);
+      cw.synthArg(\ccMatrix7knob6, \rate.asSpec, \dlyBeats);
+      cw.synthArg(\ccMatrix7knob7, \bipolar.asSpec, \dlyPos);
 
       // Effects
-      cw.synthArg(\ccMatrix7knob10, \freq.asSpec, \hpSweep); // knob 11
-      cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep); // knob 12
+      cw.synthArg(\ccMatrix7knob10, \freq.asSpec, \hpSweep);
+      cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep);
 
       // Levels
-      cw.synthArg(\ccMatrix7knob13, \amp.asSpec, \dryLevel); // knob 14
-      cw.synthArg(\ccMatrix7knob14, \amp.asSpec, \revLevel);   // knob 15
-      cw.synthArg(\ccMatrix7knob15, \amp.asSpec, \dlyLevel);   // knob 16
+      cw.synthArg(\ccMatrix7knob13, \amp.asSpec, \dryLevel);
+      cw.synthArg(\ccMatrix7knob14, \amp.asSpec, \revLevel);
+      cw.synthArg(\ccMatrix7knob15, \amp.asSpec, \dlyLevel);
 
       // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
@@ -306,11 +312,14 @@ if (~pifx.isNil.not) {
       cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
       cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
       cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
+
+      // Debug output
       cw.action(\ccMatrix7pad0, { "EQ saning...".postln; });
       cw.action(\ccMatrix7pad2, { "Reverb saning...".postln; });
       cw.action(\ccMatrix7pad3, { "Delay saning...".postln; });
       cw.action(\ccMatrix7pad1, { "FX saning...".postln; });
 
+      // Map H9 effects boxes to device columns 5 and 6
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
       ~mapDevice.value(\h9std, 5, 0, 11, ~h9knobCCs, ~h9padCCs);
