@@ -1,19 +1,18 @@
 (
-
-if (~pifx.isNil.not) {
-    // clean up any old one hangin' around
-    var pifx = ~pifx;
-    ~pifx = nil;
-    protect { pifx.freeUp };
-};
-
 MIDIClient.disposeClient;
 MIDIClient.init;
 MIDIIn.connectAll;
-~cw = ClockWise();
+
+~fx = {
+  arg dlyTime = 0.354, dlyDecay = 1.4;
+  var sig = SoundIn.ar(0);
+  Out.ar(0, sig + CombL.ar([sig, sig], 2.0, dlyTime, dlyDecay));
+}.play;
+
+
+~cw = ClockWise(~fx);
 ~cw.midiDevice(\bs, "BeatStep");
 
-~volBus = ~deviceIndex.collect { |index| "ccMatrixVol%".format(index).asSymbol };
 ~cw.select(\ccMatrixVol, \deviceSelect, ~volBus);
 
 // Maps device selection row (top pads, midi notes 44..)
@@ -38,9 +37,19 @@ MIDIIn.connectAll;
   ~cw.select(padBus, \deviceSelect, ~ccPadRow);
 };
 
-
 ~cw.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln });
 ~cw.saneValue(\deviceSelect, 0);
+
+~cw.midiEncoder(\feedback, \bs, 15, 10, 1/127);
+~cw.synthArg(\feedback, ControlSpec(0, 2000, \exponential, 2000/127), \dlyDecay);
+~cw.action(\feedback, { |v| "Feedback is now %".format(v).postln; });
+~cw.warp(\dtime, \dtime, \midi.asSpec);
+~cw.midiEncoder(\dtime, \bs, 15, 74, 1/127);
+
+~cw.synthArg(\dtime, nil, \dlyTime);
+~cw.action(\dtime, { |v| "Delay time is now %".format(v).postln; });
+
 ~cw.saneAll;
 ~cw.syncAll;
 )
+

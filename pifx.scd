@@ -58,15 +58,15 @@ if (~pifx.isNil.not) {
 
       var sweepHi = BHiPass.ar(in,       Lag2UD.kr(hpSweep, 0.05, 0.01));
       var sweepLo = BLowPass.ar(sweepHi, Lag2UD.kr(lpSweep, 0.05, 0.01));
-      var sweep = sweepLo;
+      var sweep   = sweepLo;
 
       // these feel better than the more severe BLowPass4 / BHiPass4
       // or the less sever LPF / HPF
 
       var gateRate = Select.kr(gateSelect, ~gateRates);
-      var gateOn = Lag2UD.kr(gateSelect > 0, 0.05, 0.05);
-      var gate = Lag2UD.ar((beat * gateRate).frac < 0.5, 0.005, 0.010);
-      var gated = sweep * (gate * gateOn + (1 - gateOn));
+      var gateOn   = Lag2UD.kr(gateSelect > 0, 0.05, 0.05);
+      var gate     = Lag2UD.ar((beat * gateRate).frac < 0.5, 0.005, 0.010);
+      var gated    = sweep * (gate * gateOn + (1 - gateOn));
 
       var sig = gated;
 
@@ -75,11 +75,11 @@ if (~pifx.isNil.not) {
       var maxDelay     = 16*slowest16th;
 
       var time16th = Lag2.kr(tempo.reciprocal/4, 0.75);
-      var dlyTime  =  Lag2.kr(dlyBeats*time16th,  0.75);
+      var dlyTime  = Lag2.kr(dlyBeats*time16th,  0.75);
 
       var dlyFixL  = CombL.ar(sig[0], 3*slowest16th, 3*time16th, dlyDecay);
       var dlyFixR  = CombL.ar(sig[1], 5*slowest16th, 5*time16th, dlyDecay);
-      var dlyVar   =  CombL.ar(sig,   16*slowest16th, dlyTime,    dlyDecay);
+      var dlyVar   = CombL.ar(sig,   16*slowest16th, dlyTime,    dlyDecay);
       var dly      = LeakDC.ar(XFade2.ar([dlyFixL, dlyFixR], dlyVar, dlyMix)) * dlyLevel;
       var splitDly = Pan2.ar(dly, dlyPos);
       var dlyToMix = [splitDly[0][0], splitDly[1][0]];
@@ -255,7 +255,7 @@ if (~pifx.isNil.not) {
       [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
         var knobBus = "knobBus%".format(index).asSymbol;
 
-        cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, 1 / 127, mode: \offset, inOnly: true);
+        cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, spec: ControlSpec(0, 1, step: 0.005), mode: \offset, inOnly: true);
         cw.saneValue(knobBus, 0.5); // middle of the range
 
         // Route point to currently chosen device row in matrix
@@ -300,8 +300,14 @@ if (~pifx.isNil.not) {
       // over the extreme end, which in this case
       // is more useful
       cw.synthArg(\ccMatrix7knob12, ControlSpec(127, 0), \dryLevel); // knob 13
-      cw.synthArg(\ccMatrix7knob13, nil, \revLevel);   // knob 14
-      cw.synthArg(\ccMatrix7knob14, nil, \dlyLevel);   // knob 15
+      cw.synthArg(\ccMatrix7knob13, ControlSpec(127, 0), \revLevel);   // knob 14
+      cw.synthArg(\ccMatrix7knob14, ControlSpec(127, 0), \dlyLevel);   // knob 15
+
+      (0..15).do { |i|
+        var knobSym = "ccMatrix7knob%".format(i).asSymbol;
+        cw.action(knobSym, { |v| "Knob % has value %".format(i, v).postln; });
+      };
+
       // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
       // Pad assignments for re-saning parameters
@@ -314,7 +320,6 @@ if (~pifx.isNil.not) {
       ~h9padCCs = [71, 17, 16, 70];
       ~mapDevice.value(\h9std, 5, 0, 11, ~h9knobCCs, ~h9padCCs);
       ~mapDevice.value(\h9max, 6, 0, 11, ~h9knobCCs, ~h9padCCs);
-      ~mapDevice.value(\intctl, 7, 0, 7, (22..37), (38..45));
 
       // TODO : Is this still needed?
       cw.saneAll();
