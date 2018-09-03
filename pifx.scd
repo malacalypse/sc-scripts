@@ -299,7 +299,7 @@ if (~pifx.isNil.not) {
       // but it doesn't give as fine a control
       // over the extreme end, which in this case
       // is more useful
-      cw.synthArg(\ccMatrix7knob13, ControlSpec(1, 0), \dryLevel); // knob 14
+      cw.synthArg(\ccMatrix7knob13, nil, \dryLevel); // knob 14
       cw.synthArg(\ccMatrix7knob14, nil, \revLevel);   // knob 15
       cw.synthArg(\ccMatrix7knob15, nil, \dlyLevel);   // knob 16
 
