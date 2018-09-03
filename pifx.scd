@@ -255,7 +255,7 @@ if (~pifx.isNil.not) {
       [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
         var knobBus = "knobBus%".format(index).asSymbol;
 
-        cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, spec: ControlSpec(0, 1, step: 0.005), mode: \offset, inOnly: true);
+        cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, mode: \offset, inOnly: true);
         cw.saneValue(knobBus, 0.5); // middle of the range
 
         // Route point to currently chosen device row in matrix
@@ -303,11 +303,6 @@ if (~pifx.isNil.not) {
       cw.synthArg(\ccMatrix7knob14, nil, \revLevel);   // knob 15
       cw.synthArg(\ccMatrix7knob15, nil, \dlyLevel);   // knob 16
 
-      (0..15).do { |i|
-        var knobSym = "ccMatrix7knob%".format(i).asSymbol;
-        cw.action(knobSym, { |v| "Knob % has value %".format(i, v).postln; });
-      };
-
       // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
 
       // Pad assignments for re-saning parameters
@@ -315,19 +310,21 @@ if (~pifx.isNil.not) {
       cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
       cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
       cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
+      cw.action(\ccMatrix7pad0, { "EQ saning...".postln; });
+      cw.action(\ccMatrix7pad2, { "Reverb saning...".postln; });
+      cw.action(\ccMatrix7pad3, { "Delay saning...".postln; });
+      cw.action(\ccMatrix7pad1, { "FX saning...".postln; });
 
       ~h9knobCCs = (22..31);
       ~h9padCCs = [71, 17, 16, 70];
       ~mapDevice.value(\h9std, 5, 0, 11, ~h9knobCCs, ~h9padCCs);
       ~mapDevice.value(\h9max, 6, 0, 11, ~h9knobCCs, ~h9padCCs);
 
-      // TODO : Is this still needed?
-      cw.saneAll();
-
       cw;
     }.value;
 
-    1.sleep;
+    2.sleep;
+    ~cw.saneAll;
     ~cw.syncAll;
   }).play;
 
