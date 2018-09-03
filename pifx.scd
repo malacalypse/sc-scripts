@@ -323,7 +323,7 @@ if (~pifx.isNil.not) {
     }.value;
 
     2.sleep;
-    ~cw.saneAll;
+    // ~cw.saneAll;
     ~cw.syncAll;
   }).play;
 
