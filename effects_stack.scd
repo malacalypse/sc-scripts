@@ -6,14 +6,14 @@ e = 2.71828;
 // > k: Distortion character (0 to 1)
 // > a: Input
 // < a: Output
-SynthDef(\saturation,
+SynthDef(\overdrive,
   {
     arg output = 0, input, wetdry = 0.5,
         distortion = 0.5, character = 0.5;
     var in = In.ar(input, 2);
 
     var effect = LADSPA.ar(2, 1209, distortion, character, in);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, Pan2.ar(in, effect, wetdry * 2 - 1));
   }
 ).add;
 
@@ -30,7 +30,7 @@ SynthDef(\chorus,
   {
     arg output = 0, input, wetdry = 0.5,
         numVoices = 4, predelay = 15, separation = 0.5,
-        detune = 1, lfoFreq = e, vol = 0;
+        detune = 1, lfoFreq = e, vol = -9;
     var in = In.ar(input, 2);
 
     var effect = LADSPA.ar(2, 1201, numVoices, predelay, separation, detune, lfoFreq, vol, in);
@@ -67,13 +67,76 @@ SynthDef(\delay,
 // > a: in.r (0 to 0)
 // < a: out.l
 // < a: out.r
-SynthDef(\reverb,
+SynthDef(\c_plate_x2,
   {
     arg output = 0, input, wetdry = 0.5,
         bandwidth = 0.9, tail = 0.5, hfdecay = 0.25, revMix = 1;
     var in = In.ar(input, 2);
 
-    var effect = LADSPA.ar(2, 1795, bandwidth, tail, hfdecay, revMix, in);
+    var effect = LADSPA.ar(2, 1795, bandwidth, tail, hfdecay, revMix, in[0], in[1]);
+    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+}).add;
+
+
+// in: input to the reverb. Either an array of two audio signals (stereo), or a mono audiosignal.
+// t60:  (tail)         (0.1..60) approximate reverberation time in seconds (0.1..60 sec) (T60 - the time for the reverb to decay by 60db when damp == 0 ). Does not effect early reflections.
+// damp: (hfdecay)      (0..1) controls damping of high-frequencies as the reverb decays. 0 is no damping, 1 is very strong damping. Values should be between (0..1). argumentsize scales size of delay-lines within the reverberator, producing the impression of a larger or smaller space. Values below 1 can sound metallic. Values should be between (0.5..5).
+// size:                -- undocumented --
+// earlyDiff:           (0..1) controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay. Lower values produce a slower build-up of echoes. Values should be between (0..1).
+// modDepth: depth      (0..1) of delay-line modulation. Use in combination with modFreq to set amount of chorusing within the structure.
+// modFreq: frequency   (0..10 Hz) of delay-line modulation. Use in combination with modDepth to set amount of chorusing within the structure.
+// low: multiplier      (0..1) for the reverberation time within the low band.
+// mid: multiplier      (0..1) for the reverberation time within the mid band.
+// high: multiplier     (0..1) for the reverberation time within the high band.
+// lowcut: frequency    (100..6000 Hz) at which the crossover between the low and mid bands of the reverb occurs.
+// highcut: frequency   (1000..10000 Hz) at which the crossover between the mid and high bands of the reverb occurs.
+SynthDef(\jpverb,
+  {
+    arg output = 0, input, wetdry = 0.5,
+        tail = 1, hfdecay = 0, size = 1, diffusion = 0.707,
+        modDepth = 5, modFreq = 2,
+        lowMult = 1, midMult = 1, highMult = 1,
+        lowcut = 500, highcut = 4000;
+    var in = In.ar(input, 2);
+
+    var effect = JPverb.ar(
+      in, tail, hfdecay, size, diffusion,
+      modDepth, modFreq,
+      lowMult, midMult, highMult,
+      lowcut, highcut
+      );
+    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+}).add;
+
+
+// in: either an array of two audio signals (stereo), or a mono audiosignal.
+// delayTime: (tail)  (0.1..60) approximate reverberation time in seconds (0.1..60 sec).
+// damp: (hfdecay)    (0..1) controls damping of high-frequencies as the reverb decays. 0 is no damping, 1 is very strong damping. Values should be between (0..1). argumentsize scales size of delay-lines within the diffusion unit, producing the impression of a larger or smaller space. Values below 1 can sound metallic. Values should be between (0.5..5).
+// size:              -- undocumented --
+// diff:              (0..1) controls pattern of echoes produced by the diffuser. At very low values, the diffuser acts like a delay-line whose length is controlled by the 'size' parameter. Medium values produce a slow build-up of echoes, giving the sound a reversed-like quality. Values of 0.707 or greater than produce smooth exponentially decaying echoes. Values should be in the range (0..1).
+// feedback:          (0..1) amount of feedback through the system. Sets the number of repeating echoes. A setting of 1.0 produces infinite sustain. Values should be in the range (0..1).
+// modDepth:          (0..1) depth of delay-line modulation. Use in combination with modFreq to produce chorus and pitch-variations in the echoes.
+// modFreq:           (0..10 Hz) frequency of delay-line modulation. Use in combination with modDepth to produce chorus and pitch-variations in the echoes.
+SynthDef(\greyhole,
+  {
+    arg output = 0, input, wetdry = 0.5,
+        tail = 1, hfdecay = 0, size = 1, diffusion = 1,
+        feedback = 0.1, modDepth = 0.5, modFreq = 5;
+    var in = In.ar(input, 2);
+
+    var effect = Greyhole.ar(in, tail, hfdecay, size, diffusion, feedback, modDepth, modFreq);
+    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+}).add;
+
+// mix:   (0..1) dry/wet balance
+// room:  (0..1) room size
+// damp:  (0..1) hfdecay
+SynthDef(\freeverb,
+  {
+    arg output = 0, input, wetdry = 0.5, size = 1, hfdecay = 0, level = 1;
+    var in = In.ar(input, 2);
+
+    var effect = FreeVerb2.ar(in[0], in[1], mix:1, room: size, damp: hfdecay, mul: level);
     Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
 }).add;
 
@@ -110,14 +173,81 @@ SynthDef(\ampsim,
         oversampling = 1, gain = 0.25, brightness = 0.75, power = 0.5,
         tonestack = 3, bass = 0.5, mid = 0.5, treble = 0.5,
         attack = 0.9, squash = 0.1, lowcut = 0;
-    var in = In.ar(input, 2);
+    var in = In.ar(input, 2),
+        inGain = Lag2.kr(1 - ((gain + power) / 2), 0.05);
 
     var effect = LADSPA.ar(2, 2592,
           oversampling, gain, brightness, power, tonestack, bass, mid, treble,
           attack, squash, lowcut,
-          in
+          in * inGain
         );
 
     Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
 }).add;
+
+// DJ style HP and LP filters from MZero
+SynthDef(\paraeq,
+  {
+    arg output = 0, input, hpFreq, lpFreq;
+    var in = In.ar(input, 2);
+
+    var hpfkr = Lag2UD.kr(hpFreq, 0.05, 0.01);
+    var lpfkr = Lag2UD.kr(lpFreq, 0.05, 0.01);
+
+    Out.ar(output, BLowPass.ar(BHiPass.ar(in, hpfkr), lpfkr));
+  }
+).add;
+
+// Simple stereo routing mixer with input gain and stereo send
+//   Routes two stereo signals (usually a dry signal and an effected signal)
+//   between two stereo outputs (usually a through and an effect)
+// inOne   = the first input
+// inTwo   = the second input
+// inGain  = a gainstage control to adjust the overall input level of both inputs before thru and send.
+// outThru = the default output if send values are 0;
+// outSend = secondary output - send values > 0 increase the amount of that input at this output.
+SynthDef(\fxMixer,
+  {
+    arg inOne, inTwo, inGain = 1, outThru, outSend, sendOne = 0, sendTwo = 0;
+
+    var inA = In.ar(inOne, 2),
+        inB = In.ar(inTwo, 2),
+        thruA = (1 - sendOne) * inGain,
+        thruB = (1 - sendTwo) * inGain,
+        sendA = sendOne * inGain,
+        sendB = sendTwo * inGain
+        ;
+
+    Out.ar(outThru, Mix([[inA[0] * thruA, inA[1] * thruA], [inB[0] * thruB, inB[1] * thruB]]));
+    Out.ar(outSend, Mix([[inA[0] * sendA, inA[1] * sendA], [inB[0] * sendB, inB[1] * sendB]]));
+  }
+).add;
+
+// Simple stereo->stereo panning mixer with input gain and mono summing
+// Mono summing (0..1) is linear sum from 0 (full stereo) to 1 (both inputs summed to both outputs)
+SynthDef(\m2sMixer,
+  {
+    arg input, output, mono = 0, gain = 1;
+    var in = In.ar(input, 2) * gain;
+
+    Out.ar(output, Mix.ar([Balance2.ar(in[0], in[0], mono - 1), Balance2.ar(in[1], in[1], 1 - mono)]));
+  }
+).add;
+
+
+/*
+// MZero's gate algo
+// rate is a control rate signal containing the clock division of the gate, e.g. 8, 4, 2, 0.5. 0 turns the gate effect off.
+// beat is a phasor or other control rate signal from 0 to the number of beats per bar, used to sync the gate.
+//   example beat: Phasor.ar(InTrig.kr(~beatSyncBus.index), tempo / s.sampleRate, 0, beatsPerBar);
+SynthDef(\gate,
+  {
+    arg output = 0, input, rate, beat;
+
+    var gateOn   = Lag2UD.kr(rate > 0, 0.05, 0.05);
+    var gate     = Lag2UD.ar((beat * rate).frac < 0.5, 0.005, 0.010);
+    Out.ar(output, input * (gate * gateOn + (1 - gateOn)));
+  }
+).add;
+*/
 )

@@ -1,13 +1,62 @@
 (
-"effects_stack.scd".loadRelative;
-~inBus = Bus.audio(s, 2);
-~dlyRevBus = Bus.audio(s, 2);
-~revAmpBus = Bus.audio(s, 2);
-~dly = Synth.new(\delay, [input: ~inBus, output: ~dlyRevBus]);
-~rev = Synth.new(\reverb, [input: ~dlyRevBus, output: ~revAmpBus], ~dly, \addAfter);
-~amp = Synth.new(\ampsim, [input: ~revAmpBus, output: 0], ~rev, \addAfter);
+  // A pluggable effects stack and audio mixer.
+  ~audioProcessor = {
+    arg inGain = 1, monoSum = 0;
+
+    // Set up some busses for routing
+    ~inBus    = Bus.audio(s, 2);
+    ~fxBus    = Bus.audio(s, 2);
+    ~dlyIn    = Bus.audio(s, 2);
+    ~dlyOut   = Bus.audio(s, 2);
+    ~revIn    = Bus.audio(s, 2);
+    ~ampIn    = Bus.audio(s, 2);
+
+    // Input Source Mixing and Sends
+    ~sources  = Group.new;
+    ~analogIn = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus, mono: monoSum, gain: inGain], ~sources);
+
+    // Effects Stack
+    ~effects    = Group.after(~sources);
+    ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
+    ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
+    ~delay      = Synth.new(\delay,       [input: ~dlyIn, output: ~dlyOut], ~effects, \addToTail);
+    ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo: ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
+    ~rev        = Synth.new(\c_plate_x2,  [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
+    ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
+
+    ~chorus.set(\wetdry, 0); // Turn it off by default
+    ~delay.set(\wetdry, 1); // max it out.
+
+    // Pipe the analogue input into the input bus
+    { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }.play;
+
+    // Make loadRelative happy
+    true;
+  };
+
+  "effects_stack.scd".loadRelative(setUpBusses.value);
 )
-{ Out.ar(~inBus, SoundIn.ar([0, 1])) }.play;
+
+s.plotTree;
+s.meter;
+
+{ Pan2.ar(SinOsc.ar(440) ! 2, Line.kr(-1, 1, 5)) }.play
+
+s.meter;
+e
+(
+s = Server.local;
+s.waitForBoot({
+  SynthDef(\pingpong,
+    {
+      var in = SoundIn.ar([0, 1]);
+      var buffer = Buffer.alloc(s, s.sampleRate * 2, 2);
+      var effect = PingPong.ar(buffer.bufnum, [Mix(in[0], in[1]), Bus.audio(s, 1).index], 1, 0.1, 1);
+      Out.ar(0, XFade2.ar(in, effect, 0.5));
+    }
+  ).play(s);
+});
+)
 
 {
 ~amp.set(\wetdry, 1);
