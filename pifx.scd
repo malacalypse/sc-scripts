@@ -45,6 +45,8 @@
       ~beatSyncBus = Bus.control(s, 1);
 
       Routine({
+         SynthDef(\analogIn, { arg output; Out.ar(output, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }).add;
+
         ~server.sync;
 
         // inspired by MZero's kickass delay/reverb synched effects stack of the same name
@@ -78,7 +80,8 @@
 
           // Input Source Mixing and Sends
           ~sources  = Group.new;
-          ~analogIn = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus], ~sources);
+          ~analogIn = Synth.new(\analogIn, [output: ~inBus], ~sources);
+          ~analogIn = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus], ~sources, \addToTail);
 
           // Effects Stack
           ~effects    = Group.after(~sources);
@@ -88,9 +91,6 @@
           ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
           ~reverb     = Synth.new(\greyhole,    [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
           ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
-
-          // Pipe the analogue input into the input bus
-          { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }.play;
         }.value;
 
         ~server.sync;
