@@ -10,12 +10,10 @@
 * As many USB or DIN midi devices as you can jam into your pi.
 *
 * Todo:
-*  - Use pluggable effects stack
+*  - Test stereo behaviour (I think the delay is mono-summing)...
 *  - Support recording
-*  - Support gallop mode (delay divisions by multiples and fractions of e)
 *  - Support MIDI clock in / beat sync to external clock source
 *  - Filter MIDI clock but allow start/stop from clock slaves
-*  - Implement Mono-Sum mode on input
 */
 (
   var main = {
@@ -45,14 +43,12 @@
       ~beatSyncBus = Bus.control(s, 1);
 
       Routine({
-         SynthDef(\analogIn, { arg output; Out.ar(output, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }).add;
+         SynthDef(\analogIn, { arg output; Out.ar(output, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 1)); }).add;
 
         ~server.sync;
 
         // inspired by MZero's kickass delay/reverb synched effects stack of the same name
         ~pbj = {
-          arg tempo = 2;
-
           // Core effects stack:
           // in -> overdrive -> delay -> reverb -> amp simulator -> out
           //   `-> chorus    /       `----------/
@@ -72,7 +68,6 @@
           ~dlyIn    = Bus.audio(s, 2);
           ~dlyOut   = Bus.audio(s, 2);
           ~revIn    = Bus.audio(s, 2);
-          ~ampIn    = Bus.audio(s, 2);
 
           // And some control busses for the SynthDefs
           ~bpmBus   = Bus.control(s, 1);
@@ -88,9 +83,8 @@
           ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
           ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
           ~delay      = Synth.new(\delay_ppong, [input: ~dlyIn, output: ~dlyOut, wetdry: 1], ~effects, \addToTail);
-          ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
-          ~reverb     = Synth.new(\greyhole,    [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
-          ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
+          ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: 0, outSend: ~revIn], ~effects, \addToTail);
+          ~reverb     = Synth.new(\greyhole,    [input: ~revIn, output: 0], ~effects, \addToTail);
         }.value;
 
         ~server.sync;
@@ -170,7 +164,6 @@
           cw.midiClock(\clock, \moog, outOnly: true);
           cw.midiClock(\clock, \prophet, outOnly: true);
 
-          cw.synthArg(\tempo);
           cw.warp(\tempo, \bpm, mul:60);
           cw.warp(\bpm, \ccMatrixVol7, mul: 1/127, add: -60/127);
           cw.synthArg(\ccMatrixVol7, ControlSpec(60, 127, step: 1), \bpm, ~delay);
@@ -243,7 +236,7 @@
           [10, 74, 71, 76, 77, 93, 73, 75, 114, 18, 19, 16, 17, 91, 79, 72].do { |cc, index|
             var knobBus = "ccMatrix%knobIn".format(index).asSymbol;
 
-            cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, mode: \offset, inOnly: true);
+            cw.midiEncoder(knobBus, \bs, ~bs_control_channel, cc, mode: \offset);
             cw.saneValue(knobBus, 0.5); // middle of the range
 
             // Route point to currently chosen device row in matrix
@@ -266,7 +259,7 @@
           //           reverb size earlyref/dif hfdecay     reverb tails (rt60)
           //
           //  Knob:    13          14          15            16
-          //           amp type    amp crunch  compressor    tone
+          //           [unmapped waiting for crunch and tone controls]
           //
           //  Pads:  1 [Sane All] [Preset 1] [Preset 2] [Preset 3] 4
           //         5 [Preset 4] [Preset 5] [Mono Sum] [Sync All] 8
@@ -291,15 +284,15 @@
           cw.synthArg(\ccMatrix7knob10, ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
           cw.synthArg(\ccMatrix7knob10, ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
           cw.synthArg(\ccMatrix7knob11, \lin.asSpec, \wetdry, ~reverb);
-          cw.synthArg(\ccMatrix7knob12, ControlSpec(0, 8, step: 1), \tonestack, ~amp);
-          cw.synthArg(\ccMatrix7knob13, \lin.asSpec, \crunch, ~amp);
-          cw.synthArg(\ccMatrix7knob14, \lin.asSpec, \punch, ~amp);
-          cw.synthArg(\ccMatrix7knob15, \lin.asSpec, \tone, ~amp);
+        // cw.synthArg(\ccMatrix7knob12, ControlSpec(0, 8, step: 1), \tonestack, ~amp);
+        // cw.synthArg(\ccMatrix7knob13, \lin.asSpec, \crunch, ~amp);
+        // cw.synthArg(\ccMatrix7knob14, \lin.asSpec, \punch, ~amp);
+        // cw.synthArg(\ccMatrix7knob15, \lin.asSpec, \tone, ~amp);
 
           // Pads:
           cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
-          cw.synthArg(\ccMatrix7pad6, \lin.asSpec, \mono, ~analogIn);
-          cw.saneValue(\ccMatrix7pad6, 0);
+        // cw.synthArg(\ccMatrix7pad6, \lin.asSpec, \mono, ~analogIn);
+        // cw.saneValue(\ccMatrix7pad6, 0);
           cw.action(\ccMatrix7pad0, { "Saning...".postln; });
           cw.action(\ccMatrix7pad6, { "Mono Sum is %".format().postln; });
           cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); });
@@ -318,8 +311,8 @@
           cw;
         }.value;
 
-        2.sleep;
-        // ~cw.saneAll;
+        ~server.sync;
+        "syncing...".postln;
         ~cw.syncAll;
       }).play;
 

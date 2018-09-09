@@ -152,8 +152,8 @@ SynthDef(\greyhole,
     var in = In.ar(input, 2);
     var rt60 = ControlSpec.new(0.1, 60).map(tail);
 
-    var effect = Greyhole.ar(in, rt60, hfdecay, size, diffusion, feedback, modDepth, modFreq);
-    Out.ar(output, LinXFade2.ar(in, effect, wetdry * 2 - 1));
+    var effect = Greyhole.ar([in[0], in[1]], rt60, hfdecay, size, diffusion, feedback, modDepth, modFreq);
+    Out.ar(output, LinXFade2.ar(in, [effect[0], effect[1]], wetdry * 2 - 1));
 }).add;
 
 // mix:   (0..1) dry/wet balance
