@@ -19,14 +19,16 @@
     ~effects    = Group.after(~sources);
     ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
     ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-    ~delay      = Synth.new(\delay,       [input: ~dlyIn, output: ~dlyOut], ~effects, \addToTail);
+    ~delay      = Synth.new(\delay_mzero, [input: ~dlyIn, output: ~revIn], ~effects, \addToTail);
     ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo: ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
     ~rev        = Synth.new(\c_plate_x2,  [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
     ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
 
     ~chorus.set(\wetdry, 0); // Turn it off by default
     ~delay.set(\wetdry, 1); // max it out.
-
+    ~delayMix.set(\sendTwo, 0.5);
+    ~delayMix.set(\sendOne, 0.5);
+    ~amp.set(\tone, 0.5);
     // Pipe the analogue input into the input bus
     { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }.play;
 
@@ -34,7 +36,7 @@
     true;
   };
 
-  "effects_stack.scd".loadRelative(setUpBusses.value);
+  "effects_stack.scd".loadRelative(~audioProcessor.value);
 )
 
 s.plotTree;
@@ -88,14 +90,27 @@ i = SoundIn.ar([0, 1]);
 ~stdSpec = ControlSpec.new(0, 1, \lin, 1/127);
 ~stdSpec.step
 
+ControlSpec.new(0.1, 60).map(1);
+
 (
-w = DbFaderWarp.asWarp;
+~blerp = Environment.new { |self|
+  self.know = true;
+  ~map = {
+    arg value;
+    ControlSpec(0, 1).map(value * 2);
+  };
+};
+(
 (0..127).collect { |n|
-  (n/127).sqrt;
+  ControlSpec(1, 0.5, \exp).map(n * (1/127));
 }.plot;
 )
 w.map(0.5);
+Quarks.gui
 
+    SegWarp([0.5, 0.5, 1]).map(0.5)
+ControlSpec(0.5, 1, \exp).map(1)
+SineWarp(0, 1).map(1)
 // # 2588 C* Scape - Stereo delay with chromatic resonances
 // > k: bpm (30 to 164)
 // > k: divider (2 to 4)
@@ -106,3 +121,12 @@ w.map(0.5);
 // > a: in (0 to 0)
 // < a: out.l
 // < a: out.r
+
+    ControlSpec(1, 0.5, \amp)
+~delayDivisions = [25, 8, 6, 4, 3, e, 2, e/2, 1, 0.5];
+~delayDivisions[1]
+(0..127).collect { |n| ~delayDivisions[ControlSpec(0, ~delayDivisions.size, step: 1).map(n * (1/127) ).asInteger] };
+
+// Debugging
+    OSCresponderNode(s.addr, '/tr', { |time, resp, msg| msg.postln }).add
+        SendTrig.kr(Impulse.kr(1), 0, dlyTime);

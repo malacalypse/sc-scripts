@@ -26,6 +26,7 @@
     s.recChannels = 2;
     s.recSampleFormat = "int24";
     e = 2.71828;
+  // o = OSCresponderNode(s.addr, '/tr', { |time, resp, msg| msg.postln }).add;
 
     if (~pifx.isNil.not) {
       // clean up any old one hangin' around
@@ -41,17 +42,14 @@
 
       ~server = s;
       ~metro = metro = TempoClock(self.efx, 120/60);
-
-      ~gateRates = [0, 8, 6, 4, 3, 2, 1, 0.5]; // 0 is off
-      ~delayDivisions = [25, 8, 6, 4, 3, e, 2, e/2, 1, 0.5];
+      ~beatSyncBus = Bus.control(s, 1);
 
       Routine({
-        ~beatSyncBus = Bus.control(s, 1);
+        ~server.sync;
 
         // inspired by MZero's kickass delay/reverb synched effects stack of the same name
         ~pbj = {
-          arg tempo = 2 // 120bpm
-          ;
+          arg tempo = 2;
 
           // Core effects stack:
           // in -> overdrive -> delay -> reverb -> amp simulator -> out
@@ -74,6 +72,10 @@
           ~revIn    = Bus.audio(s, 2);
           ~ampIn    = Bus.audio(s, 2);
 
+          // And some control busses for the SynthDefs
+          ~bpmBus   = Bus.control(s, 1);
+          ~divBus   = Bus.control(s, 1);
+
           // Input Source Mixing and Sends
           ~sources  = Group.new;
           ~analogIn = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus], ~sources);
@@ -82,13 +84,10 @@
           ~effects    = Group.after(~sources);
           ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
           ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-          ~delay      = Synth.new(\delay,       [input: ~dlyIn, output: ~dlyOut], ~effects, \addToTail);
-          ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo: ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
-          ~reverb     = Synth.new(\c_plate_x2,  [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
+          ~delay      = Synth.new(\delay_ppong, [input: ~dlyIn, output: ~dlyOut, wetdry: 1], ~effects, \addToTail);
+          ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
+          ~reverb     = Synth.new(\greyhole,    [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
           ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
-
-          ~chorus.set(\wetdry, 0); // Turn it off by default
-          ~delay.set(\wetdry, 1); // max it out.
 
           // Pipe the analogue input into the input bus
           { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }.play;
@@ -174,6 +173,7 @@
           cw.synthArg(\tempo);
           cw.warp(\tempo, \bpm, mul:60);
           cw.warp(\bpm, \ccMatrixVol7, mul: 1/127, add: -60/127);
+          cw.synthArg(\ccMatrixVol7, ControlSpec(60, 127, step: 1), \bpm, ~delay);
 
           cw.action(\sendStart, {
             metro.playNextBar({
@@ -201,7 +201,6 @@
           // Beatstep configuration:
           //  - Factory defaults (control pads send MIDI notes) +
           //  - All knobs except volume: relative encoding type 1 with no speedup +
-          //  - Lower row of pads (9-16) send CC 80-87, gate mode +
           //  - Control channel: 15 = MIDI 16 / set as default global channel +
           //  - Sequence channel: 0 = MIDI 1.
           // Connections are to a ccMatrix symbol:
@@ -256,51 +255,59 @@
           };
           // End of hardware init and core routing.
 
-          // Set up synthArgs and Actions for internal controls, all on device 7
+          // AUDIO PROCESSOR CONTROLS - Device 7
+          //  Knob:    1           2           3             4
+          //           input gain  chorus amt  overdrive amt [unmapped]
+          //
+          //  Knob:    9           10          11            12
+          //           delay time  delay fdbk  rev send*     rev. mix
+          //
+          //  Knob:    5           6           7             8
+          //           reverb size earlyref/dif hfdecay     reverb tails (rt60)
+          //
+          //  Knob:    13          14          15            16
+          //           amp type    amp crunch  compressor    tone
+          //
+          //  Pads:  1 [Sane All] [Preset 1] [Preset 2] [Preset 3] 4
+          //         5 [Preset 4] [Preset 5] [Mono Sum] [Sync All] 8
+          //
+          // Note: The delay reverb send is a bidirectional control AROUND the delay.
+          //  -1 = only dry is sent to the reverb. Tails are sent past to the output directly.
+          //   0 = dry + wet are fully sent only to the reverb. Nothing bypasses the reverb.
+          //   1 = only wet (tails) is sent to the reverb, dry bypasses the reverb.
+          // The delay is always set to full wet internally to allow this control.
+
+          // Knobs: point, spec, symbol, node
+          cw.synthArg(\ccMatrix7knob0, \lin.asSpec, \gain, ~analogIn);
+          cw.synthArg(\ccMatrix7knob1, \lin.asSpec, \wetdry, ~chorus);
+          cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \wetdry, ~overdrive);
+          cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \distortion, ~overdrive);
+          cw.synthArg(\ccMatrix7knob4, \lin.asSpec, \size, ~reverb);
+          cw.synthArg(\ccMatrix7knob5, \lin.asSpec, \diffusion, ~reverb);
+          cw.synthArg(\ccMatrix7knob6, \lin.asSpec, \hfdecay, ~reverb);
+          cw.synthArg(\ccMatrix7knob7, \lin.asSpec, \tail, ~reverb);
+          cw.synthArg(\ccMatrix7knob8, \lin.asSpec, \division, ~delay);
+          cw.synthArg(\ccMatrix7knob9, \amp.asSpec, \feedback, ~delay);
+          cw.synthArg(\ccMatrix7knob10, ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
+          cw.synthArg(\ccMatrix7knob10, ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
+          cw.synthArg(\ccMatrix7knob11, \lin.asSpec, \wetdry, ~reverb);
+          cw.synthArg(\ccMatrix7knob12, ControlSpec(0, 8, step: 1), \tonestack, ~amp);
+          cw.synthArg(\ccMatrix7knob13, \lin.asSpec, \crunch, ~amp);
+          cw.synthArg(\ccMatrix7knob14, \lin.asSpec, \punch, ~amp);
+          cw.synthArg(\ccMatrix7knob15, \lin.asSpec, \tone, ~amp);
+
+          // Pads:
+          cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
+          cw.synthArg(\ccMatrix7pad6, \lin.asSpec, \mono, ~analogIn);
+          cw.saneValue(\ccMatrix7pad6, 0);
+          cw.action(\ccMatrix7pad0, { "Saning...".postln; });
+          cw.action(\ccMatrix7pad6, { "Mono Sum is %".format().postln; });
           cw.action(\ccMatrix7pad7, { "Resyncing".postln; cw.syncAll(); });
 
-          // 3 Band Eq
-          cw.synthArg(\ccMatrix7knob8, \boostcut.asSpec, \loGainDb);
-          cw.synthArg(\midGainDb, \boostcut.asSpec); // unmapped for now
-          cw.synthArg(\ccMatrix7knob0, \boostcut.asSpec, \hiGainDb);
-          cw.synthArg(\ccMatrix7knob9, \midfreq.asSpec, \loFreq);
-          cw.synthArg(\ccMatrix7knob1, ControlSpec(440, 10000, \exp), \hiFreq);
-
-          // Stutter Gate
-          cw.synthArg(\ccMatrix7knob12, ControlSpec(0, ~gateRates.size), \gateSelect);
-
-          // Reverb
-          cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \revRoom);
-          cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \revDamp);
-
-          // Delay
-          cw.synthArg(\ccMatrix7knob4, \decay.asSpec, \dlyDecay);
-          cw.synthArg(\ccMatrix7knob5, \bipolar.asSpec, \dlyMix);
-          cw.synthArg(\ccMatrix7knob6, \rate.asSpec, \dlyBeats);
-          cw.synthArg(\ccMatrix7knob7, \bipolar.asSpec, \dlyPos);
-
-          // Effects
-          cw.synthArg(\ccMatrix7knob10, \freq.asSpec, \hpSweep);
-          cw.synthArg(\ccMatrix7knob11, \freq.asSpec, \lpSweep);
-
-          // Levels
-          cw.synthArg(\ccMatrix7knob13, \amp.asSpec, \dryLevel);
-          cw.synthArg(\ccMatrix7knob14, \amp.asSpec, \revLevel);
-          cw.synthArg(\ccMatrix7knob15, \amp.asSpec, \dlyLevel);
-
-          // cw.synthArg(\outLevel, nil, \outLevel);   // unmapped
-
-          // Pad assignments for re-saning parameters
-          cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
-          cw.triggerSane(\ccMatrix7pad2, [\revRoom, \revDamp]); // pad 11
-          cw.triggerSane(\ccMatrix7pad3, [\dlyDecay, \dlyMix, \dlyBeats]); // pad 12
-          cw.triggerSane(\ccMatrix7pad1, [\hpSweep, \lpSweep, \gateSelect]); // pad 10
-
-          // Debug output
-          cw.action(\ccMatrix7pad0, { "EQ saning...".postln; });
-          cw.action(\ccMatrix7pad2, { "Reverb saning...".postln; });
-          cw.action(\ccMatrix7pad3, { "Delay saning...".postln; });
-          cw.action(\ccMatrix7pad1, { "FX saning...".postln; });
+          // Debug
+          (0..15).do { |n|
+            cw.action("ccMatrix7knob%".format(n).asSymbol, { |v| "Knob % is now %".format(n, v).postln; });
+          };
 
           // Map H9 effects boxes to device columns 5 and 6
           ~h9knobCCs = (22..31);

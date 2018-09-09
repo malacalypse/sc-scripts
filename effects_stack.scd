@@ -1,5 +1,6 @@
 (
 e = 2.71828;
+~delayDivisions = [25, 8, 6, 4, 3, e, 2, e/2, 1, 0.5];
 
 // # 1209 Valve saturation
 // > k: Distortion level (0 to 1)
@@ -9,11 +10,11 @@ e = 2.71828;
 SynthDef(\overdrive,
   {
     arg output = 0, input, wetdry = 0.5,
-        distortion = 0.5, character = 0.5;
+        distortion = 0.5, character = 0.8;
     var in = In.ar(input, 2);
 
     var effect = LADSPA.ar(2, 1209, distortion, character, in);
-    Out.ar(output, Pan2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, LinXFade2.ar(in, effect, wetdry * 2 - 1));
   }
 ).add;
 
@@ -34,52 +35,77 @@ SynthDef(\chorus,
     var in = In.ar(input, 2);
 
     var effect = LADSPA.ar(2, 1201, numVoices, predelay, separation, detune, lfoFreq, vol, in);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, LinXFade2.ar(in, effect, wetdry * 2 - 1));
   }
 ).add;
 
 // # 2588 C* Scape - Stereo delay with chromatic resonances
 // > k: bpm (30 to 164)
-// > k: divider (2 to 4)
+// > k: divider (2 to 4) // (0..1) is mapped to a pleasant range of divisions.
 // > k: feedback (0 to 1)
 // > k: dry (0 to 1)
 // > k: blend (0 to 1)
-// > k: tune (Hz) (415 to 467)
+// > k: tune (Hz) (415 to 467) (modulation param mod)
 // > a: in (0 to 0)
 // < a: out.l
 // < a: out.r
-SynthDef(\delay,
+SynthDef(\delay_cscape,
   {
     arg output = 0, input, wetdry = 0.5, bpm = 120,
-        dlyDivide = e, dlyFdbk = 0.3, dlyDry = 0, dlyBlend = 1, dlyTune = 432;
-    var in = In.ar(input, 2);
+        divider = 0.5, feedback = 0.3, dry = 0, mod = 0.5;
+    var in = In.ar(input, 2),
+        tune = ControlSpec(415, 467).map(mod),
+        division = Select.kr(ControlSpec(0, ~delayDivisions.size).map(divider), ~delayDivisions);
 
-    var effect = LADSPA.ar(2, 2588, bpm, dlyDivide, dlyFdbk, dlyDry, dlyBlend, dlyTune, in);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    var effect = LADSPA.ar(2, 2588, bpm, division, feedback, dry, wetdry, tune, in);
+    Out.ar(output, effect);
 }).add;
 
+// a modified stereo ping-pong delay
+SynthDef(\delay_ppong,
+  {
+    arg output = 0, input, wetdry = 1, bpm = 120,
+        division = 0.5, feedback = 0.3, mod = 0;
+
+    // flows
+    var in = In.ar(input, 2);
+    var divider = Select.kr(ControlSpec(0, ~delayDivisions.size, step: 1).map(division), ~delayDivisions);
+
+    // calcs
+    var tempo       = 60.0 / bpm;
+    var dlyTime     = Lag2.kr(tempo / divider,  0.75);
+    var rt60        = ControlSpec(0, 60, \amp).map(feedback);
+    var fbratio     = 0.001 ** (dlyTime / rt60.abs) * rt60.sign; // permits negative feedback which changes harmonics
+
+    var effect = PingPong.ar(Buffer.alloc(s, s.sampleRate * 2, 2).bufnum, [in[0],in[1]], dlyTime, fbratio, 1);
+
+    Out.ar(output, effect);
+  }
+).add;
+
 // # 1795 C* PlateX2 - Versatile plate reverb, stereo inputs
-// > k: bandwidth (0 to 1)
+// > k: bandwidth (0 to 1) (size)
 // > k: tail (0 to 1)
-// > k: damping (0 to 1)
-// > k: blend (0 to 1)
+// > k: damping (0 to 1) (hfdecay)
+// > k: blend (0 to 1) (wetdry)
 // > a: in.l (0 to 0)
 // > a: in.r (0 to 0)
 // < a: out.l
 // < a: out.r
+// NOTE: diffusion is added here for compatibility but it does nothing in this reverb algorithm.
 SynthDef(\c_plate_x2,
   {
     arg output = 0, input, wetdry = 0.5,
-        bandwidth = 0.9, tail = 0.5, hfdecay = 0.25, revMix = 1;
+        size = 0.9, tail = 0.5, hfdecay = 0.25, diffusion = 0;
     var in = In.ar(input, 2);
 
-    var effect = LADSPA.ar(2, 1795, bandwidth, tail, hfdecay, revMix, in[0], in[1]);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    var effect = LADSPA.ar(2, 1795, size, tail, hfdecay, wetdry, in[0], in[1]);
+    Out.ar(output, effect);
 }).add;
 
 
 // in: input to the reverb. Either an array of two audio signals (stereo), or a mono audiosignal.
-// t60:  (tail)         (0.1..60) approximate reverberation time in seconds (0.1..60 sec) (T60 - the time for the reverb to decay by 60db when damp == 0 ). Does not effect early reflections.
+// t60:  (tail)         (0..1) => (0.1..60) approximate reverberation time in seconds (0.1..60 sec) (T60 - the time for the reverb to decay by 60db when damp == 0 ). Does not affect early reflections.
 // damp: (hfdecay)      (0..1) controls damping of high-frequencies as the reverb decays. 0 is no damping, 1 is very strong damping. Values should be between (0..1). argumentsize scales size of delay-lines within the reverberator, producing the impression of a larger or smaller space. Values below 1 can sound metallic. Values should be between (0.5..5).
 // size:                -- undocumented --
 // earlyDiff:           (0..1) controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay. Lower values produce a slower build-up of echoes. Values should be between (0..1).
@@ -93,24 +119,25 @@ SynthDef(\c_plate_x2,
 SynthDef(\jpverb,
   {
     arg output = 0, input, wetdry = 0.5,
-        tail = 1, hfdecay = 0, size = 1, diffusion = 0.707,
+        tail = 0.1, hfdecay = 0, size = 1, diffusion = 0.707,
         modDepth = 5, modFreq = 2,
         lowMult = 1, midMult = 1, highMult = 1,
         lowcut = 500, highcut = 4000;
     var in = In.ar(input, 2);
+    var rt60 = ControlSpec.new(0.1, 60).map(tail);
 
     var effect = JPverb.ar(
-      in, tail, hfdecay, size, diffusion,
+      in, rt60, hfdecay, size, diffusion,
       modDepth, modFreq,
       lowMult, midMult, highMult,
       lowcut, highcut
       );
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, LinXFade2.ar(in, effect, wetdry * 2 - 1));
 }).add;
 
 
 // in: either an array of two audio signals (stereo), or a mono audiosignal.
-// delayTime: (tail)  (0.1..60) approximate reverberation time in seconds (0.1..60 sec).
+// delayTime: (tail)  (0..1) => (0.1..60) approximate reverberation time in seconds (0.1..60 sec).
 // damp: (hfdecay)    (0..1) controls damping of high-frequencies as the reverb decays. 0 is no damping, 1 is very strong damping. Values should be between (0..1). argumentsize scales size of delay-lines within the diffusion unit, producing the impression of a larger or smaller space. Values below 1 can sound metallic. Values should be between (0.5..5).
 // size:              -- undocumented --
 // diff:              (0..1) controls pattern of echoes produced by the diffuser. At very low values, the diffuser acts like a delay-line whose length is controlled by the 'size' parameter. Medium values produce a slow build-up of echoes, giving the sound a reversed-like quality. Values of 0.707 or greater than produce smooth exponentially decaying echoes. Values should be in the range (0..1).
@@ -123,9 +150,10 @@ SynthDef(\greyhole,
         tail = 1, hfdecay = 0, size = 1, diffusion = 1,
         feedback = 0.1, modDepth = 0.5, modFreq = 5;
     var in = In.ar(input, 2);
+    var rt60 = ControlSpec.new(0.1, 60).map(tail);
 
-    var effect = Greyhole.ar(in, tail, hfdecay, size, diffusion, feedback, modDepth, modFreq);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    var effect = Greyhole.ar(in, rt60, hfdecay, size, diffusion, feedback, modDepth, modFreq);
+    Out.ar(output, LinXFade2.ar(in, effect, wetdry * 2 - 1));
 }).add;
 
 // mix:   (0..1) dry/wet balance
@@ -137,7 +165,7 @@ SynthDef(\freeverb,
     var in = In.ar(input, 2);
 
     var effect = FreeVerb2.ar(in[0], in[1], mix:1, room: size, damp: hfdecay, mul: level);
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, LinXFade2.ar(in, [effect[0], effect[1]], wetdry * 2 - 1));
 }).add;
 
 // # 2592 C* AmpVTS - Idealised guitar amplification
@@ -167,22 +195,36 @@ SynthDef(\freeverb,
 // 8	 porky
 // TODO : Create composite controls for compression (blend attack and squash), tone (blend brightness, bass, mid, treble), and crunch (blend gain and power, maybe tweak brightness).
 // Possible TODO: Map some of the controls against an envelope follower to turn down the crunch when it's really loud?
+//
+// Custom controls:
+//   tonestack => passthrough to the plugin
+//   crunch => A synthesis of gain, power, and other controls for overdrive
+//   punch => compression as a single control
+//   tone => eq and brightness as a single control
 SynthDef(\ampsim,
   {
-    arg output = 0, input, wetdry = 0.5,
-        oversampling = 1, gain = 0.25, brightness = 0.75, power = 0.5,
-        tonestack = 3, bass = 0.5, mid = 0.5, treble = 0.5,
-        attack = 0.9, squash = 0.1, lowcut = 0;
+    arg output = 0, input, wetdry = 1,
+        tonestack = 3, crunch = 0.1, punch = 0.1, tone = 0.5;
     var in = In.ar(input, 2),
-        inGain = Lag2.kr(1 - ((gain + power) / 2), 0.05);
+        oversampling = 1,
+        gain = ControlSpec(0, 1).map(crunch),
+        brightness = ControlSpec(0.4, 1, 4).map(tone),
+        power = 0.5, // ControlSpec(0.2, 0.9).map(crunch),
+        bass = ControlSpec(0.7, 0.3).map(tone),
+        mid = 0.5,
+        treble = ControlSpec(0.3, 0.7).map(tone),
+        attack = ControlSpec(0.1, 0.3).map(punch),
+        squash = ControlSpec(0, 1).map(punch),
+        lowcut = 0.05,
+        outlevel = ControlSpec(1, 0.3, \amp).map(crunch)
+        ;
 
     var effect = LADSPA.ar(2, 2592,
           oversampling, gain, brightness, power, tonestack, bass, mid, treble,
           attack, squash, lowcut,
-          in * inGain
-        );
+          in);
 
-    Out.ar(output, XFade2.ar(in, effect, wetdry * 2 - 1));
+    Out.ar(output, LinXFade2.ar(in, effect * outlevel, wetdry * 2 - 1));
 }).add;
 
 // DJ style HP and LP filters from MZero
@@ -206,6 +248,7 @@ SynthDef(\paraeq,
 // inGain  = a gainstage control to adjust the overall input level of both inputs before thru and send.
 // outThru = the default output if send values are 0;
 // outSend = secondary output - send values > 0 increase the amount of that input at this output.
+// sendOne / sendTwo = respective sends for each input. 0 = 100% thru, 0% send, 1 = 100% send, 0% thru.
 SynthDef(\fxMixer,
   {
     arg inOne, inTwo, inGain = 1, outThru, outSend, sendOne = 0, sendTwo = 0;
