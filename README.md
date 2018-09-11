@@ -11,7 +11,7 @@ It's useful for swapping out various effects and seeing how they compare - most 
 
 The ones named `c_<something>` utilize the [C*Audio Plugin Suite](http://quitte.de/dsp/caps.html#) LADSPA plugins, so be sure you have those compiled and available on your system first. You'll also need the LADSPA UGen, which is part of the SC3-Plugins project.
 
-All others which use the LADSPA Ugen are from the normal [plugin.org](http://plugin.org) LADSPA distribution.
+All others which use the LADSPA Ugen are from the normal [plugin.org.uk](http://plugin.org.uk) LADSPA distribution.
 
 ## pifx.scd
 Inspired and borrowing heavily from [MZero's pbj.scd](https://github.com/mzero/crunch-clockwise/blob/master/pbj.scd), this builds an internal audio routing between effects in the `Effects Stack`, and combines that with a custom MIDI routing setup using my Arturia BeatStep as a central controller.
