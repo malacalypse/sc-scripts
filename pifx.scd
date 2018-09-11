@@ -43,15 +43,15 @@
       ~beatSyncBus = Bus.control(s, 1);
 
       Routine({
-         SynthDef(\analogIn, { arg output; Out.ar(output, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 1)); }).add;
+         SynthDef(\analogIn, { arg output; Out.ar(output, SoundIn.ar([0, 1])); }).add;
 
         ~server.sync;
 
         // inspired by MZero's kickass delay/reverb synched effects stack of the same name
         ~pbj = {
           // Core effects stack:
-          // in -> overdrive -> delay -> reverb -> amp simulator -> out
-          //   `-> chorus    /       `----------/
+          // in -> chorus -> overdrive -> delay -> reverb -> amp simulator -> out
+          //                                   `----------/
           //
           // Delay can send clean only, tails only, or clean + tails to reverb.
           // Amp simulator has it's own crunch it can add too.
@@ -68,6 +68,7 @@
           ~dlyIn    = Bus.audio(s, 2);
           ~dlyOut   = Bus.audio(s, 2);
           ~revIn    = Bus.audio(s, 2);
+          ~distIn   = Bus.audio(s, 2);
 
           // And some control busses for the SynthDefs
           ~bpmBus   = Bus.control(s, 1);
@@ -80,11 +81,13 @@
 
           // Effects Stack
           ~effects    = Group.after(~sources);
-          ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-          ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-          ~delay      = Synth.new(\delay_ppong, [input: ~dlyIn, output: ~dlyOut, wetdry: 1], ~effects, \addToTail);
-          ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: 0, outSend: ~revIn], ~effects, \addToTail);
-          ~reverb     = Synth.new(\greyhole,    [input: ~revIn, output: 0], ~effects, \addToTail);
+          ~chorus     = Synth.new(\chorus,        [input: ~fxBus, output: ~satIn], ~effects, \addToTail);
+          ~saturation = Synth.new(\fastoverdrive, [input: ~satIn, output: ~dlyIn], ~effects, \addToTail);
+          ~delay      = Synth.new(\delay_ppong,   [input: ~dlyIn, output: ~dlyOut, wetdry: 1], ~effects, \addToTail);
+          ~delayMix   = Synth.new(\fxMixer,       [inOne: ~dlyIn, inTwo:  ~dlyOut,
+                                                   outThru: ~distIn, outSend: ~revIn], ~effects, \addToTail);
+          ~reverb     = Synth.new(\jpverb,        [input: ~revIn, output: ~distIn], ~effects, \addToTail);
+          ~heat       = Synth.new(\digitalheat,   [input: ~distIn, output: 0], ~effects, \addToTail);
         }.value;
 
         ~server.sync;
@@ -250,7 +253,7 @@
 
           // AUDIO PROCESSOR CONTROLS - Device 7
           //  Knob:    1           2           3             4
-          //           input gain  chorus amt  overdrive amt [unmapped]
+          //           input gain  chorus amt  overdrive amt overdrive dist
           //
           //  Knob:    9           10          11            12
           //           delay time  delay fdbk  rev send*     rev. mix
@@ -272,25 +275,25 @@
 
           // Knobs: point, spec, symbol, node
           cw.synthArg(\ccMatrix7knob0, \lin.asSpec, \gain, ~analogIn);
-          cw.synthArg(\ccMatrix7knob1, \lin.asSpec, \wetdry, ~chorus);
-          cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \wetdry, ~overdrive);
-          cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \distortion, ~overdrive);
+          cw.synthArg(\ccMatrix7knob1, \lin.asSpec, \mix, ~chorus);
+          cw.synthArg(\ccMatrix7knob2, \lin.asSpec, \mix, ~saturation);
+          cw.synthArg(\ccMatrix7knob3, \lin.asSpec, \mix, ~heat);
           cw.synthArg(\ccMatrix7knob4, \lin.asSpec, \size, ~reverb);
-          cw.synthArg(\ccMatrix7knob5, \lin.asSpec, \diffusion, ~reverb);
-          cw.synthArg(\ccMatrix7knob6, \lin.asSpec, \hfdecay, ~reverb);
-          cw.synthArg(\ccMatrix7knob7, \lin.asSpec, \tail, ~reverb);
+          cw.synthArg(\ccMatrix7knob5, \lin.asSpec, \hfdecay, ~reverb);
+          cw.synthArg(\ccMatrix7knob6, \lin.asSpec, \tail, ~reverb);
+          cw.synthArg(\ccMatrix7knob7, \lin.asSpec, \mix, ~reverb);
           cw.synthArg(\ccMatrix7knob8, \lin.asSpec, \division, ~delay);
           cw.synthArg(\ccMatrix7knob9, \amp.asSpec, \feedback, ~delay);
           cw.synthArg(\ccMatrix7knob10, ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
           cw.synthArg(\ccMatrix7knob10, ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
-          cw.synthArg(\ccMatrix7knob11, \lin.asSpec, \wetdry, ~reverb);
+          cw.synthArg(\ccMatrix7knob11, \lin.asSpec, \mix, ~delay);
         // cw.synthArg(\ccMatrix7knob12, ControlSpec(0, 8, step: 1), \tonestack, ~amp);
-        // cw.synthArg(\ccMatrix7knob13, \lin.asSpec, \crunch, ~amp);
+        // cw.synthArg(\ccMatrix7knob13, \lin.asSpec, \crunch, ~heat);
         // cw.synthArg(\ccMatrix7knob14, \lin.asSpec, \punch, ~amp);
         // cw.synthArg(\ccMatrix7knob15, \lin.asSpec, \tone, ~amp);
 
           // Pads:
-          cw.triggerSane(\ccMatrix7pad0, [\loGainDb, \midGainDb, \hiGainDb, \loFreq, \hiFreq]); // pad 8, far left
+          cw.triggerSane(\ccMatrix7pad0); // pad 8, far left
         // cw.synthArg(\ccMatrix7pad6, \lin.asSpec, \mono, ~analogIn);
         // cw.saneValue(\ccMatrix7pad6, 0);
           cw.action(\ccMatrix7pad0, { "Saning...".postln; });

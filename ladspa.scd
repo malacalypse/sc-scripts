@@ -17,34 +17,45 @@
 
     // Effects Stack
     ~effects    = Group.after(~sources);
-    ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-    ~overdrive  = Synth.new(\overdrive,   [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
-    ~delay      = Synth.new(\delay_mzero, [input: ~dlyIn, output: ~revIn], ~effects, \addToTail);
-    ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo: ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
-    ~rev        = Synth.new(\c_plate_x2,  [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
-    ~amp        = Synth.new(\ampsim,      [input: ~ampIn, output: 0], ~effects, \addToTail);
+  // ~chorus     = Synth.new(\chorus,      [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
+  // ~overdrive  = Synth.new(\valvesat,    [input: ~fxBus, output: ~dlyIn], ~effects, \addToTail);
+  // ~delay      = Synth.new(\delay_ppong, [input: ~dlyIn, output: ~revIn], ~effects, \addToTail);
+  // ~delayMix   = Synth.new(\fxMixer,     [inOne: ~dlyIn, inTwo: ~dlyOut, outThru: ~ampIn, outSend: ~revIn], ~effects, \addToTail);
+  // ~rev        = Synth.new(\jpverb,      [input: ~revIn, output: ~ampIn], ~effects, \addToTail);
+    ~distortion = Synth.new(\digitalheat, [input: ~fxBus, output: 0], ~effects, \addToTail);
 
-    ~chorus.set(\wetdry, 0); // Turn it off by default
-    ~delay.set(\wetdry, 1); // max it out.
+    ~chorus.set(\mix, 0); // Turn it off by default
+    ~delay.set(\mix, 1); // max it out.
     ~delayMix.set(\sendTwo, 0.5);
     ~delayMix.set(\sendOne, 0.5);
     ~amp.set(\tone, 0.5);
     // Pipe the analogue input into the input bus
-    { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(1), 0)); }.play;
+    { Out.ar(~inBus, Balance2.ar(SoundIn.ar(0), SoundIn.ar(0), 0)); }.play;
 
     // Make loadRelative happy
     true;
   };
 
   "effects_stack.scd".loadRelative(~audioProcessor.value);
+  s.scope;
 )
-
+~audioProcessor.set(\ingain, 1)
+s.options.input.sampleRate = 44100
 s.plotTree;
-s.meter;
+s.meter
+;
+
+~distortion.set(\mix, 0.5)
 
 { Pan2.ar(SinOsc.ar(440) ! 2, Line.kr(-1, 1, 5)) }.play
 
 s.meter;
+(
+s.waitForBoot({ s.scope; b = Bus.audio(s, 2); b.scope; });
+)
+
+if (s.sampleRate.isNil) { 48000 * 2 } { s.sampleRate * 2 }
+
 e
 (
 s = Server.local;
@@ -60,6 +71,7 @@ s.waitForBoot({
 });
 )
 
+s.sampleRate
 {
 ~amp.set(\wetdry, 1);
 ~amp.set(\power, 1);
