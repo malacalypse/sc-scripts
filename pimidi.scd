@@ -44,8 +44,8 @@ if (~cw.isNil.not) {
   // Very simple note routing for now
   cw.midiPerf(\keyBus, \ks, 0);
   cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
-  cw.midiPerf(\keyBus, \rtpout, 0); 
-  cw.midiPerf(\keyBus, \rtpin, 0); 
+  cw.midiPerf(\keyBus, \rtpout, 0);
+  cw.midiPerf(\keyBus, \rtpin, 0);
   // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
   cw.midiPerf(\gch5, \dn, 4);
   cw.midiPerf(\gch5, \moog, 4);

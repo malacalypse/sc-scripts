@@ -2,6 +2,10 @@
 e = 2.71828;
 ~delayDivisions = [25, 8, 6, 4, 3, e, 2, e/2, 1, 0.5];
 
+/*
+ * DISTORTION
+ */
+
 // # 1209 Valve saturation
 // > k: Distortion level (0 to 1)
 // > k: Distortion character (0 to 1)
@@ -11,11 +15,12 @@ e = 2.71828;
 SynthDef(\valvesat,
   {
     arg output = 0, input, mix = 0.5, crunch = 0.1;
+
     var in = In.ar(input, 2);
     var distortion = mix;
     var character = mix;
-
     var effect = LADSPA.ar(2, 1209, distortion, character, in);
+
     Out.ar(output, LinXFade2.ar(in, effect, mix * 2 - 1));
   }
 ).add;
@@ -32,13 +37,17 @@ SynthDef(\valvesat,
 SynthDef(\digitalheat,
   {
     arg output = 0, input, mix = 0, ratio = 1/3, attack = 0.01, release = 0.1;
+
     var in = In.ar(input, 2);
     var asymmetry = ControlSpec(0, 0.1).map(mix);
     var pregain = Lag.kr(ControlSpec(1, 10).map(mix));
     var threshold = ControlSpec(1, 0.4).map(mix);
+
+    // Processing
     var comp = CompanderD.ar(in: in, thresh: threshold, slopeBelow: 1, slopeAbove: ratio, clampTime: attack, relaxTime: release, mul: 1, add: 0);
     var effect = SoftClipAmp4.ar(comp.madd(add: asymmetry), pregain: pregain, add: -1 * pregain * asymmetry);
     var outcomp = CompanderD.ar(in: effect, thresh: 0.7, slopeBelow: 1, slopeAbove: ratio, clampTime: attack, relaxTime: release, mul: 1, add: 0);
+
     Out.ar(output, LinXFade2.ar(in, outcomp, mix * 2 - 1));
   }
 ).add;
@@ -50,10 +59,11 @@ SynthDef(\digitalheat,
 SynthDef(\fastoverdrive,
   {
     arg output = 0, input, mix = 0;
+
     var in = In.ar(input, 2),
         drive = ControlSpec(1, 3).map(mix);
-
     var effect = LADSPA.ar(2, 1196, drive, in);
+
     Out.ar(output, LinXFade2.ar(in, effect, mix * 2 - 1));
   }
 ).add;
@@ -67,14 +77,19 @@ SynthDef(\fastoverdrive,
 SynthDef(\c_saturate,
   {
     arg output = 0, input, mix = 1, mode = 1, gain = 0.25, bias = 0.5;
+
     var in = In.ar(input, 2),
         m_mode = ControlSpec(0, 11, step: 1).map(mode),
         m_gain = ControlSpec(-24, 72).map(gain);
-
     var effect = LADSPA.ar(2, 1771, m_mode, m_gain, bias, in);
+
     Out.ar(output, LinXFade2.ar(in, effect, mix * 2 - 1));
   }
 ).add;
+
+/*
+ * Pitch effects: CHORUS, FLANGER, PHASER, etc...
+ */
 
 // # 1201 Multivoice Chorus
 // > k: Number of voices (1 to 8)
@@ -90,12 +105,17 @@ SynthDef(\chorus,
     arg output = 0, input, mix = 0,
         numVoices = 8, predelay = 15, separation = 0.5,
         detune = 1, lfoFreq = e, vol = -9;
-    var in = In.ar(input, 2);
 
+    var in = In.ar(input, 2);
     var effect = LADSPA.ar(2, 1201, numVoices, predelay, separation, detune, lfoFreq, vol, in);
+
     Out.ar(output, LinXFade2.ar(in, effect, mix * 2 - 1));
   }
 ).add;
+
+/*
+ * DELAYS
+ */
 
 // # 2588 C* Scape - Stereo delay with chromatic resonances
 // > k: bpm (30 to 164)
@@ -107,15 +127,16 @@ SynthDef(\chorus,
 // > a: in (0 to 0)
 // < a: out.l
 // < a: out.r
-SynthDef(\delay_cscape,
+SynthDef(\c_scape,
   {
     arg output = 0, input, mix = 0.5, bpm = 120,
         divider = 0.5, feedback = 0.3, dry = 0, mod = 0.5;
+
     var in = In.ar(input, 2),
         tune = ControlSpec(415, 467).map(mod),
         division = Select.kr(ControlSpec(0, ~delayDivisions.size).map(divider), ~delayDivisions);
-
     var effect = LADSPA.ar(2, 2588, bpm, division, feedback, dry, mix, tune, in);
+
     Out.ar(output, effect);
 }).add;
 
@@ -141,6 +162,10 @@ SynthDef(\delay_ppong,
   }
 ).add;
 
+/*
+ * REVERBS
+ */
+
 // # 1795 C* PlateX2 - Versatile plate reverb, stereo inputs
 // > k: bandwidth (0 to 1) (size)
 // > k: tail (0 to 1)
@@ -155,8 +180,8 @@ SynthDef(\c_plate_x2,
   {
     arg output = 0, input, mix = 0.5,
         size = 0.9, tail = 0.5, hfdecay = 0.25, diffusion = 0;
-    var in = In.ar(input, 2);
 
+    var in = In.ar(input, 2);
     var effect = LADSPA.ar(2, 1795, size, tail, hfdecay, mix, in[0], in[1], output, output + 1);
 }).add;
 
@@ -180,15 +205,16 @@ SynthDef(\jpverb,
         modDepth = 5, modFreq = 2,
         lowMult = 1, midMult = 1, highMult = 1,
         lowcut = 500, highcut = 4000;
+
     var in = In.ar(input, 2);
     var rt60 = ControlSpec.new(0.1, 60).map(tail);
-
     var effect = JPverb.ar(
       in, rt60, hfdecay, size, diffusion,
       modDepth, modFreq,
       lowMult, midMult, highMult,
       lowcut, highcut
       );
+
     Out.ar(output, LinXFade2.ar(in, effect, mix * 2 - 1));
 }).add;
 
@@ -206,10 +232,11 @@ SynthDef(\greyhole,
     arg output = 0, input, mix = 0.5,
         tail = 1, hfdecay = 0, size = 1, diffusion = 1,
         feedback = 0.1, modDepth = 0.5, modFreq = 5;
+
     var in = In.ar(input, 2);
     var rt60 = ControlSpec.new(0.1, 60).map(tail);
-
     var effect = Greyhole.ar([in[0], in[1]], rt60, hfdecay, size, diffusion, feedback, modDepth, modFreq);
+
     Out.ar(output, LinXFade2.ar(in, [effect[0], effect[1]], mix * 2 - 1));
 }).add;
 
@@ -219,11 +246,16 @@ SynthDef(\greyhole,
 SynthDef(\freeverb,
   {
     arg output = 0, input, mix = 0.5, size = 1, hfdecay = 0, level = 1;
-    var in = In.ar(input, 2);
 
+    var in = In.ar(input, 2);
     var effect = FreeVerb2.ar(in[0], in[1], mix:1, room: size, damp: hfdecay, mul: level);
+
     Out.ar(output, LinXFade2.ar(in, [effect[0], effect[1]], mix * 2 - 1));
 }).add;
+
+/*
+ * AMP, CABINET, AND SPEAKER EMULATIONS
+ */
 
 // # 2592 C* AmpVTS - Idealised guitar amplification
 // > k: over (0 to 2)
@@ -258,10 +290,11 @@ SynthDef(\freeverb,
 //   crunch => A synthesis of gain, power, and other controls for overdrive
 //   punch => compression as a single control
 //   tone => eq and brightness as a single control
-SynthDef(\ampsim,
+SynthDef(\c_ampsim,
   {
     arg output = 0, input, mix = 1,
         tonestack = 3, crunch = 0.1, punch = 0.1, tone = 0.5;
+
     var in = In.ar(input, 2),
         oversampling = 1,
         gain = ControlSpec(0, 1).map(crunch),
@@ -275,7 +308,6 @@ SynthDef(\ampsim,
         lowcut = 0.05,
         outlevel = ControlSpec(1, 0.3, \amp).map(crunch)
         ;
-
     var effect = LADSPA.ar(2, 2592,
           oversampling, gain, brightness, power, tonestack, bass, mid, treble,
           attack, squash, lowcut,
@@ -284,18 +316,26 @@ SynthDef(\ampsim,
     Out.ar(output, LinXFade2.ar(in, effect * outlevel, mix * 2 - 1));
 }).add;
 
+/*
+ * EQ AND COMPRESSION
+ */
+
 // DJ style HP and LP filters from MZero
 SynthDef(\paraeq,
   {
     arg output = 0, input, hpFreq, lpFreq;
-    var in = In.ar(input, 2);
 
+    var in = In.ar(input, 2);
     var hpfkr = Lag2UD.kr(hpFreq, 0.05, 0.01);
     var lpfkr = Lag2UD.kr(lpFreq, 0.05, 0.01);
 
     Out.ar(output, BLowPass.ar(BHiPass.ar(in, hpfkr), lpfkr));
   }
 ).add;
+
+/*
+ * MIXERS AND SIGNAL UTILITIES
+ */
 
 // Simple stereo routing mixer with input gain and stereo send
 //   Routes two stereo signals (usually a dry signal and an effected signal)
@@ -328,26 +368,26 @@ SynthDef(\fxMixer,
 SynthDef(\m2sMixer,
   {
     arg input, output, mono = 0, gain = 1;
+
     var in = In.ar(input, 2) * gain;
 
     Out.ar(output, Mix.ar([Balance2.ar(in[0], in[0], mono - 1), Balance2.ar(in[1], in[1], 1 - mono)]));
   }
 ).add;
 
-
-/*
 // MZero's gate algo
 // rate is a control rate signal containing the clock division of the gate, e.g. 8, 4, 2, 0.5. 0 turns the gate effect off.
 // beat is a phasor or other control rate signal from 0 to the number of beats per bar, used to sync the gate.
-//   example beat: Phasor.ar(InTrig.kr(~beatSyncBus.index), tempo / s.sampleRate, 0, beatsPerBar);
+//   ex: Phasor.ar(InTrig.kr(~beatSyncBus.index), tempo / s.sampleRate, 0, beatsPerBar);
 SynthDef(\gate,
   {
     arg output = 0, input, rate, beat;
 
-    var gateOn   = Lag2UD.kr(rate > 0, 0.05, 0.05);
-    var gate     = Lag2UD.ar((beat * rate).frac < 0.5, 0.005, 0.010);
+    var k_rate = In.kr(rate);
+    var gateOn = Lag2UD.kr(k_rate > 0, 0.05, 0.05);
+    var gate   = Lag2UD.ar((In.ar(beat) * k_rate).frac < 0.5, 0.005, 0.010);
+
     Out.ar(output, input * (gate * gateOn + (1 - gateOn)));
   }
 ).add;
-*/
 )
