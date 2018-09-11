@@ -118,12 +118,16 @@
             var ccMatrixVol = "ccMatrixVol%".format(deviceNumber).asSymbol;
 
             knobCCs.do { |knobCC, index|
-              var ccMatrix = "ccMatrix%knob%".format(deviceNumber, index).asSymbol;
-              cw.midiCC(ccMatrix, device, ch, knobCC);
+              if (knobCC.isNil.not) {
+                var ccMatrix = "ccMatrix%knob%".format(deviceNumber, index).asSymbol;
+                cw.midiCC(ccMatrix, device, ch, knobCC);
+              };
             };
             padCCs.do { |padCC, index|
-              var ccMatrix = "ccMatrix%pad%".format(deviceNumber, index).asSymbol;
-              cw.midiTriggerButton(ccMatrix, device, ch, cc: padCC);
+              if (padCC.isNil.not) {
+                var ccMatrix = "ccMatrix%pad%".format(deviceNumber, index).asSymbol;
+                cw.midiTriggerButton(ccMatrix, device, ch, cc: padCC);
+              };
             };
             cw.midiCC(ccMatrixVol, device, ch, volCC);
           };
@@ -306,8 +310,8 @@
           };
 
           // Map H9 effects boxes to device columns 5 and 6
-          ~h9knobCCs = (22..31);
-          ~h9padCCs = [71, 17, 16, 70];
+          ~h9knobCCs = [22, 23, 24, 25, 26, 27, nil, nil, 28, 29, 30, 31];
+          ~h9padCCs = [70, 17, 16, 71];
           ~mapDevice.value(\h9std, 5, 0, 11, ~h9knobCCs, ~h9padCCs);
           ~mapDevice.value(\h9max, 6, 0, 11, ~h9knobCCs, ~h9padCCs);
 
