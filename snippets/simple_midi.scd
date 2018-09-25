@@ -16,7 +16,7 @@ if (~cw.isNil.not) {
 
   cw.midiDevice(\key, "keystep");    // put your keyboard here
   cw.midiDevice(\syn, "digitone");   // put a hardware synth here
-  cw.midiDevice(\din, "pisound")     // DIN I/O
+  cw.midiDevice(\din, "pisound");    // DIN I/O
 
   // Very simple note routing for now
   cw.midiPerf(\keyBus, \key, 0);
