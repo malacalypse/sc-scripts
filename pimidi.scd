@@ -47,7 +47,7 @@ if (~cw.isNil.not) {
           }
         };
       } { "H9 program dump for % could not be parsed.".format(device_number).postln };
-    } { "Sysex for % is not an H9 Program Dump:".format(device_number).postln };
+    };
   };
   ~requestH9Program = { |device| cw.getMidiOut(device).sysex(Int8Array[ 0xF0, 0x1C, 0x70, 0, 0x4E, 0xF7]) };
 
@@ -82,20 +82,14 @@ if (~cw.isNil.not) {
   cw.midiDevice(\dn,      "digitone");
   cw.midiDevice(\moog,    "subsequent 37");
   cw.midiDevice(\prophet, "rev2");
-  cw.midiDevice(\rtpout,  "0-0");
-  cw.midiDevice(\rtpin,   "0-1");
+  // cw.midiDevice(\rtpout,  "0-0");
+  // cw.midiDevice(\rtpin,   "0-1");
+  cw.midiDevice(\din,     "pisound");
 
   // Very simple note routing for now
   cw.midiPerf(\keyBus, \ks, 0);
+  cw.midiPerf(\keyBus, \din, 0);
   cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
-  cw.midiPerf(\keyBus, \rtpout, 0);
-  cw.midiPerf(\keyBus, \rtpin, 0);
-  // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
-  cw.midiPerf(\gch5, \dn, 4);
-  cw.midiPerf(\gch5, \moog, 4);
-  // Channel 6 is Rev2
-  cw.midiPerf(\gch6, \dn, 5);
-  cw.midiPerf(\gch6, \prophet, 5);
 
   // Set up clocking
   cw.tempoClock(\tempo, \clock, ~metro);
@@ -103,6 +97,7 @@ if (~cw.isNil.not) {
   cw.midiClock(\clock, \dn, outOnly:true);
   cw.midiClock(\clock, \mft, outOnly:true);
   cw.midiClock(\clock, \ks, outOnly:true);
+  cw.midiClock(\clock, \din, outOnly:true);
   cw.midiClock(\clock, \h9_std, outOnly:true);
   cw.midiClock(\clock, \h9_max, outOnly:true);
   cw.midiClock(\clock, \moog, outOnly: true);

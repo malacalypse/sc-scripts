@@ -124,6 +124,7 @@ var main = {
         // Initialize Devices
         cw.midiDevice(\mft,     "MIDI Fighter Twister");
         cw.midiDevice(\ks,      "keystep");
+        cw.midiDevice(\din,     "pisound");
         cw.midiDevice(\h9std,   "H9 Standard");
         cw.midiDevice(\h9max,   "H9 Pedal");
         cw.midiDevice(\rytm,    "analog rytm");
@@ -132,14 +133,15 @@ var main = {
         cw.midiDevice(\prophet, "rev2");
 
         // RTP Midi Virtual MIDI ports
-        cw.midiDevice(\rtpin, "0-0", inOnly: true);
-        cw.midiDevice(\rtpout, "0-1", outOnly: true);
+        // cw.midiDevice(\rtpin, "0-0", inOnly: true);
+        // cw.midiDevice(\rtpout, "0-1", outOnly: true);
 
         // Very simple note routing for now
         cw.midiPerf(\keyBus, \ks, 0);
+        cw.midiPerf(\keyBus, \din, 0);
         cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
-        cw.midiPerf(\keyBus, \rtpout, 0);
-        cw.midiPerf(\keyBus, \rtpin, 0);
+        // cw.midiPerf(\keyBus, \rtpout, 0);
+        // cw.midiPerf(\keyBus, \rtpin, 0);
         // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
         cw.midiPerf(\gch5, \dn, 4);
         cw.midiPerf(\gch5, \moog, 4);
@@ -154,6 +156,7 @@ var main = {
         cw.midiClock(\clock, \dn, outOnly:true);
         cw.midiClock(\clock, \mft, outOnly:true);
         cw.midiClock(\clock, \ks, outOnly:true);
+        cw.midiClock(\clock, \din, outOnly:true);
         cw.midiClock(\clock, \h9std, outOnly:true);
         cw.midiClock(\clock, \h9max, outOnly:true);
         cw.midiClock(\clock, \moog, outOnly: true);
