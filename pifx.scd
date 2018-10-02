@@ -255,7 +255,7 @@ var main = {
 
         ~fx_position = 1;
         // Knobs: point, spec, symbol, node
-        cw.synthArg(~mknob.value(~fx_position, 0), ControlSpec(1, 2, \db), \gain, ~analogIn);
+        cw.synthArg(~mknob.value(~fx_position, 0), ControlSpec(0.5, 2, \db), \gain, ~analogIn);
         cw.synthArg(~mknob.value(~fx_position, 1), \lin.asSpec, \mix, ~chorus);
         cw.synthArg(~mknob.value(~fx_position, 2), \lin.asSpec, \mix, ~saturation);
         cw.synthArg(~mknob.value(~fx_position, 3), \lin.asSpec, \mix, ~heat);
