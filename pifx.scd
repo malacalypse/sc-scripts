@@ -235,11 +235,11 @@ var main = {
         //  Knob:    1           2           3             4
         //           input gain  chorus amt  overdrive amt overdrive dist
         //
-        //  Knob:    9           10          11            12
-        //           delay time  delay fdbk  rev send*     rev. mix
-        //
         //  Knob:    5           6           7             8
         //           reverb size earlyref/dif hfdecay     reverb tails (rt60)
+        //
+        //  Knob:    9           10          11            12
+        //           delay time  delay fdbk  rev send*     rev. mix
         //
         //  Knob:    13          14          15            16
         //           [unmapped waiting for crunch and tone controls]
@@ -255,7 +255,7 @@ var main = {
 
         ~fx_position = 1;
         // Knobs: point, spec, symbol, node
-        cw.synthArg(~mknob.value(~fx_position, 0), \lin.asSpec, \gain, ~analogIn);
+        cw.synthArg(~mknob.value(~fx_position, 0), ControlSpec(1, 2, \db), \gain, ~analogIn);
         cw.synthArg(~mknob.value(~fx_position, 1), \lin.asSpec, \mix, ~chorus);
         cw.synthArg(~mknob.value(~fx_position, 2), \lin.asSpec, \mix, ~saturation);
         cw.synthArg(~mknob.value(~fx_position, 3), \lin.asSpec, \mix, ~heat);
@@ -268,6 +268,10 @@ var main = {
         cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
         cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
         cw.synthArg(~mknob.value(~fx_position, 11), \lin.asSpec, \mix, ~delay);
+        cw.resane(~mknob.value(~fx_position, 12), 0);
+        cw.resane(~mknob.value(~fx_position, 13), 0);
+        cw.resane(~mknob.value(~fx_position, 14), 0);
+        cw.resane(~mknob.value(~fx_position, 15), 0);
         // cw.synthArg(~mknob.value(~fx_position, 12), ControlSpec(0, 8, step: 1), \tonestack, ~amp);
         // cw.synthArg(~mknob.value(~fx_position, 13), \lin.asSpec, \crunch, ~heat);
         // cw.synthArg(~mknob.value(~fx_position, 14), \lin.asSpec, \punch, ~amp);
