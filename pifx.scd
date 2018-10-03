@@ -50,11 +50,10 @@ var main = {
       // inspired by MZero's kickass delay/reverb synched effects stack of the same name
       ~pbj = {
         // Core effects stack:
-        // in -> chorus -> overdrive -> delay -> reverb -> amp simulator -> out
+        // in -> chorus -> overdrive -> delay -> reverb  -> out
         //                                   `----------/
         //
         // Delay can send clean only, tails only, or clean + tails to reverb.
-        // Amp simulator has it's own crunch it can add too.
         // Other ideas include:
         //   - Switchable reverb types (FreeVerb2, Greyhole, JPverb, c_plate_x2)
         //   - Switchable delay types (some kind of pingpong, a modulated delay, and maybe a tape.)
@@ -68,7 +67,7 @@ var main = {
         ~dlyIn    = Bus.audio(s, 2);
         ~dlyOut   = Bus.audio(s, 2);
         ~revIn    = Bus.audio(s, 2);
-        ~distIn   = Bus.audio(s, 2);
+        ~dstIn    = Bus.audio(s, 2);
 
         // And some control busses for the SynthDefs
         ~bpmBus   = Bus.control(s, 1);
@@ -77,17 +76,16 @@ var main = {
         // Input Source Mixing and Sends
         ~sources  = Group.new;
         ~analogIn = Synth.new(\analogIn, [output: ~inBus], ~sources);
-        ~analogIn = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus], ~sources, \addToTail);
+        ~inMix = Synth.new(\m2sMixer, [input: ~inBus, output: ~fxBus], ~sources, \addToTail);
 
         // Effects Stack
         ~effects    = Group.after(~sources);
         ~chorus     = Synth.new(\chorus,        [input: ~fxBus, output: ~satIn], ~effects, \addToTail);
         ~saturation = Synth.new(\fastoverdrive, [input: ~satIn, output: ~dlyIn], ~effects, \addToTail);
         ~delay      = Synth.new(\delay_ppong,   [input: ~dlyIn, output: ~dlyOut, wetdry: 1], ~effects, \addToTail);
-        ~delayMix   = Synth.new(\fxMixer,       [inOne: ~dlyIn, inTwo:  ~dlyOut,
-          outThru: ~distIn, outSend: ~revIn], ~effects, \addToTail);
-        ~reverb     = Synth.new(\jpverb,        [input: ~revIn, output: ~distIn], ~effects, \addToTail);
-        ~heat       = Synth.new(\digitalheat,   [input: ~distIn, output: 0], ~effects, \addToTail);
+        ~delayMix   = Synth.new(\fxMixer,       [inOne: ~dlyIn, inTwo:  ~dlyOut, outThru: ~dstIn, outSend: ~revIn], ~effects, \addToTail);
+        ~reverb     = Synth.new(\jpverb,        [input: ~revIn, output: ~dstIn], ~effects, \addToTail);
+        ~heat       = Synth.new(\digitalheat,   [input: ~dstIn, output: 0], ~effects, \addToTail);
       }.value;
 
       ~server.sync;
@@ -101,7 +99,7 @@ var main = {
         //  the entire set to a new destination, sort of like a column switch on a
         //  crossbar matrix.
 
-        // ~mapDevice.value(\destName, deviceNumber, channel, [array of knob CCs in order], [array of pad CCs in order]);
+        // ~mapDevice.(\destName, deviceNumber, channel, [array of knob CCs in order], [array of pad CCs in order]);
         //    destName : Symbol for midiDevice to route the data to/from
         //    deviceNumber : The crossbar allows for 8 devices to be routed between,
         //                   corresponding to the 8 pads on the top row of the BS.
@@ -116,8 +114,8 @@ var main = {
         ~mpad  = { |pos, padNum| "ccMatrix%pad%".format(pos, padNum).asSymbol };
         ~mapDevice = {
           arg point, position, ch = 0, knobCCs, padCCs;
-          knobCCs.do { |knobCC, knobNum| if (knobCC.isNil.not) { cw.midiCC(~mknob.value(position, knobNum), point, ch, knobCC) } };
-          padCCs.do  { |padCC,  padNum| if (padCC.isNil.not) { cw.midiTriggerButton(~mpad.value(position, padNum), point, ch, cc: padCC) } };
+          knobCCs.do { |knobCC, knobNum| if (knobCC.isNil.not) { cw.midiCC(~mknob.(position, knobNum), point, ch, knobCC) } };
+          padCCs.do  { |padCC,  padNum| if (padCC.isNil.not) { cw.midiTriggerButton(~mpad.(position, padNum), point, ch, cc: padCC) } };
         };
 
         // Drop in your own hardware initialization and core routing here
@@ -163,8 +161,8 @@ var main = {
         cw.midiClock(\clock, \prophet, outOnly: true);
 
         cw.saneValue(~mknob.(0, 0), 60/127);
-        cw.warp(\bpm, ~mknob.value(0, 0), mul: 1/127, add: -60/127);
-        cw.synthArg(~mknob.value(0, 0), ControlSpec(60, 127, step: 1), \bpm, ~delay);
+        cw.warp(\bpm, ~mknob.(0, 0), mul: 1/127, add: -60/127);
+        cw.synthArg(~mknob.(0, 0), ControlSpec(60, 127, step: 1), \bpm, ~delay);
 
         cw.action(\sendStart, {
           metro.playNextBar({
@@ -210,8 +208,9 @@ var main = {
         // bottom row of switches (8-15) = cc 8-15, channel 2
         (0..7).do { |padNum|
           var padBus = "padBus%".format(padNum).asSymbol;
+
           cw.midiTriggerButton(padBus, \mft, ~switch_ch, cc: padNum + 8);
-          cw.select(padBus, \deviceSelect, (0..7).collect { |position| ~mpad.value(position, padNum) } );
+          cw.select(padBus, \deviceSelect, (0..7).collect { |position| ~mpad.(position, padNum) } );
         };
 
         (0..15).do { |knobNum|
@@ -219,7 +218,7 @@ var main = {
 
           cw.midiCC(knobBus, \mft, ~encoder_ch, knobNum);
           cw.saneValue(knobBus, 0.5); // middle of the range
-          cw.select(knobBus, \deviceSelect, (0..7).collect { |position| ~mknob.value(position, knobNum) } );
+          cw.select(knobBus, \deviceSelect, (0..7).collect { |position| ~mknob.(position, knobNum) } );
         };
         (0..15).do { |cc| cw.midiCC("animation%".format(cc).asSymbol, \mft, ~animation_ch, cc) };
         (0..15).do { |cc|
@@ -256,39 +255,32 @@ var main = {
 
         ~fx_position = 1;
         // Knobs: point, spec, symbol, node
-        cw.synthArg(~mknob.value(~fx_position, 0), ControlSpec(0.5, 2, \db), \gain, ~analogIn);
-        cw.synthArg(~mknob.value(~fx_position, 1), \lin.asSpec, \mix, ~chorus);
-        cw.synthArg(~mknob.value(~fx_position, 2), \lin.asSpec, \mix, ~saturation);
-        cw.synthArg(~mknob.value(~fx_position, 3), \lin.asSpec, \mix, ~heat);
-        cw.synthArg(~mknob.value(~fx_position, 4), \lin.asSpec, \size, ~reverb);
-        cw.synthArg(~mknob.value(~fx_position, 5), \lin.asSpec, \hfdecay, ~reverb);
-        cw.synthArg(~mknob.value(~fx_position, 6), \lin.asSpec, \tail, ~reverb);
-        cw.synthArg(~mknob.value(~fx_position, 7), \lin.asSpec, \mix, ~reverb);
-        cw.synthArg(~mknob.value(~fx_position, 8), \lin.asSpec, \division, ~delay);
-        cw.synthArg(~mknob.value(~fx_position, 9), \amp.asSpec, \feedback, ~delay);
-        cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
-        cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
-        cw.synthArg(~mknob.value(~fx_position, 11), \lin.asSpec, \mix, ~delay);
-        cw.saneValue(~mknob.value(~fx_position, 12), 0);
-        cw.saneValue(~mknob.value(~fx_position, 13), 0);
-        cw.saneValue(~mknob.value(~fx_position, 14), 0);
-        cw.saneValue(~mknob.value(~fx_position, 15), 0);
-        // cw.synthArg(~mknob.value(~fx_position, 12), ControlSpec(0, 8, step: 1), \tonestack, ~amp);
-        // cw.synthArg(~mknob.value(~fx_position, 13), \lin.asSpec, \crunch, ~heat);
-        // cw.synthArg(~mknob.value(~fx_position, 14), \lin.asSpec, \punch, ~amp);
-        // cw.synthArg(~mknob.value(~fx_position, 15), \lin.asSpec, \tone, ~amp);
+        cw.synthArg(~mknob.(~fx_position, 0), ControlSpec(0.5, 2, \db), \gain, ~inMix);
+        cw.synthArg(~mknob.(~fx_position, 1), \lin.asSpec, \mix, ~chorus);
+        cw.synthArg(~mknob.(~fx_position, 2), \lin.asSpec, \mix, ~saturation);
+        cw.synthArg(~mknob.(~fx_position, 3), \lin.asSpec, \mix, ~heat);
+        cw.synthArg(~mknob.(~fx_position, 4), \lin.asSpec, \size, ~reverb);
+        cw.synthArg(~mknob.(~fx_position, 5), \lin.asSpec, \hfdecay, ~reverb);
+        cw.synthArg(~mknob.(~fx_position, 6), \lin.asSpec, \tail, ~reverb);
+        cw.synthArg(~mknob.(~fx_position, 7), \lin.asSpec, \mix, ~reverb);
+        cw.synthArg(~mknob.(~fx_position, 8), \lin.asSpec, \division, ~delay);
+        cw.synthArg(~mknob.(~fx_position, 9), \amp.asSpec, \feedback, ~delay);
+        cw.synthArg(~mknob.(~fx_position, 10), ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
+        cw.synthArg(~mknob.(~fx_position, 10), ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
+        cw.synthArg(~mknob.(~fx_position, 11), \lin.asSpec, \mix, ~delay);
+        cw.synthArg(~mknob.(~fx_position, 12), \lin.asSpec, \mono, ~inMix);
+        cw.saneValue(~mknob.(~fx_position, 13), 0); // does nothing
+        cw.saneValue(~mknob.(~fx_position, 14), 0);
+        cw.saneValue(~mknob.(~fx_position, 15), 0);
 
         // Pads:
-        cw.triggerSane(~mpad.value(~fx_position, 4)); // lower left switch
-        // cw.synthArg(~mknob.value(~fx_position, 5), \lin.asSpec, \mono, ~analogIn);
-        // cw.saneValue(~mknob.value(~fx_position, 5), 0);
-        cw.action(~mpad.value(~fx_position, 4), { "Saning...".postln; });
-        cw.action(~mpad.value(~fx_position, 5), { "Mono Sum is %".format().postln; });
-        cw.action(~mpad.value(~fx_position, 7), { "Resyncing".postln; cw.syncAll(); });
+        cw.midiToggleButton(~mpad.(~fx_position, 12), \mft, ~switch_ch, cc: 12, defaultEnabled: true);
+        cw.action(~mpad.(~fx_position, 14), { "Resyncing".postln; cw.syncAll; });
+        cw.action(~mpad.(~fx_position, 15), { "Saning...".postln; cw.saneAll; });
 
         // Debug
         (0..15).do { |n|
-          cw.action(~mknob.value(~fx_position, n), { |v| "Knob % is now %".format(n, v).postln; });
+          cw.action(~mknob.(~fx_position, n), { |v| "Knob % is now %".format(n, v).postln; });
         };
 
         // Map H9 effects boxes to device columns 2 and 3 - top right two switches
@@ -298,8 +290,8 @@ var main = {
                        22,  23,  24,  25];
         ~h9padCCs  = [71, nil, nil, nil,
                       70,  17,  16, nil];
-        ~mapDevice.value(\h9std, 2, 0, ~h9knobCCs, ~h9padCCs);
-        ~mapDevice.value(\h9max, 3, 0, ~h9knobCCs, ~h9padCCs);
+        ~mapDevice.(\h9std, 2, 0, ~h9knobCCs, ~h9padCCs);
+        ~mapDevice.(\h9max, 3, 0, ~h9knobCCs, ~h9padCCs);
 
         cw;
       }.value;
