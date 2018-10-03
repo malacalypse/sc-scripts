@@ -276,6 +276,10 @@ var main = {
 
         // Pads:
         cw.midiToggleButton(~mpad.(~fx_position, 12), \mft, ~switch_ch, cc: 12, defaultEnabled: true);
+        cw.action(~mpad.(~fx_position, 12), { |v|
+              "% internal MIDI clock generation.".format(if(v > 0, "Enabling", "Disabling")).postln;
+              if (v > 0) { ~metro.play; } { ~metro.stop; };
+            });
         cw.action(~mpad.(~fx_position, 14), { "Resyncing".postln; cw.syncAll; });
         cw.action(~mpad.(~fx_position, 15), { "Saning...".postln; cw.saneAll; });
 
