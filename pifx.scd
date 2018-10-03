@@ -162,6 +162,7 @@ var main = {
         cw.midiClock(\clock, \moog, outOnly: true);
         cw.midiClock(\clock, \prophet, outOnly: true);
 
+        cw.saneValue(~mknob.(0, 0), 60/127);
         cw.warp(\bpm, ~mknob.value(0, 0), mul: 1/127, add: -60/127);
         cw.synthArg(~mknob.value(0, 0), ControlSpec(60, 127, step: 1), \bpm, ~delay);
 
@@ -268,10 +269,10 @@ var main = {
         cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(0, 1, SegWarp([0, 1, 1])), \sendOne, ~delayMix);
         cw.synthArg(~mknob.value(~fx_position, 10), ControlSpec(1, 0, SegWarp([1, 1, 0])), \sendTwo, ~delayMix);
         cw.synthArg(~mknob.value(~fx_position, 11), \lin.asSpec, \mix, ~delay);
-        cw.resane(~mknob.value(~fx_position, 12), 0);
-        cw.resane(~mknob.value(~fx_position, 13), 0);
-        cw.resane(~mknob.value(~fx_position, 14), 0);
-        cw.resane(~mknob.value(~fx_position, 15), 0);
+        cw.saneValue(~mknob.value(~fx_position, 12), 0);
+        cw.saneValue(~mknob.value(~fx_position, 13), 0);
+        cw.saneValue(~mknob.value(~fx_position, 14), 0);
+        cw.saneValue(~mknob.value(~fx_position, 15), 0);
         // cw.synthArg(~mknob.value(~fx_position, 12), ControlSpec(0, 8, step: 1), \tonestack, ~amp);
         // cw.synthArg(~mknob.value(~fx_position, 13), \lin.asSpec, \crunch, ~heat);
         // cw.synthArg(~mknob.value(~fx_position, 14), \lin.asSpec, \punch, ~amp);
