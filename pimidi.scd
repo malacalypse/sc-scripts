@@ -6,7 +6,8 @@ if (~cw.isNil.not) {
     protect { cw.free };
 };
 
-~metro = TempoClock(120/60);
+~defaultTempo = 120;
+~metro = TempoClock(~defaultTempo/60);
 
 // basic setup
 ~fx_device_number = 1;
@@ -163,6 +164,7 @@ if (~cw.isNil.not) {
   cw.saneValue(\animation0, 15/127);
 
   // Map device 0 to system parameters
+  cw.resane(~mknob.(0,0), (~defaultTempo + 60)/127);
   cw.warp(\bpm, ~mknob.(0, 0), mul: 1/127, add: -60/127);
 
   // Pads:
