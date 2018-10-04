@@ -17,6 +17,8 @@
 */
 (
 var main = {
+  var debug = false;
+
   // MIDIClient.disposeClient;
   // MIDIClient.init;
   // MIDIIn.connectAll;
@@ -24,7 +26,7 @@ var main = {
   s.recChannels = 2;
   s.recSampleFormat = "int24";
   e = 2.71828;
-  ~debug = false;
+
   // o = OSCresponderNode(s.addr, '/tr', { |time, resp, msg| msg.postln }).add;
 
   if (~pifx.isNil.not) {
@@ -204,7 +206,7 @@ var main = {
         // top row of switches (0-7) = cc 0-7, channel 2
         (0..7).do { |cc| cw.midiRadioButton(\deviceSelect, cc, \mft, ~switch_ch, cc: cc) };
         cw.saneValue(\deviceSelect, 0);
-        if (~debug) { cw.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln }); };
+        if (debug) { cw.action(\deviceSelect, { |v| "Input device changed to %".format(v).postln }); };
 
         // bottom row of switches (8-15) = cc 8-15, channel 2
         (0..7).do { |padNum|
@@ -284,9 +286,9 @@ var main = {
         cw.action(~mpad.(~fx_position, 15), { "Saning...".postln; cw.saneAll; });
 
         // Debug
-        if (~debug) {
+        if (debug) {
             (0..15).do { |n|
-              cw.action(~mknob.(~fx_position, n), { |v| "Knob % is now %".format(n, v).postln; });
+              cw.action(~mknob.(~fx_position, n), { |v| "Knob % is now %".format(n, v).postln });
             };
         };
 
