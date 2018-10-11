@@ -132,6 +132,8 @@ var main = {
         cw.midiDevice(\dn,      "digitone");
         cw.midiDevice(\moog,    "subsequent 37");
         cw.midiDevice(\prophet, "rev2");
+        cw.midiDevice(\mtr,     "minitaur");
+        cw.midiDevice(\mm,      "micromonsta");
 
         // RTP Midi Virtual MIDI ports
         // cw.midiDevice(\rtpin, "0-0", inOnly: true);
@@ -149,6 +151,12 @@ var main = {
         // Channel 6 is Rev2
         cw.midiPerf(\gch6, \dn, 5);
         cw.midiPerf(\gch6, \prophet, 5);
+        // Channel 7 is Minitaur
+        cw.midiPerf(\gch7, \dn, 6);
+        cw.midiPerf(\gch7, \mtr, 0);
+        // Channel 8 is MicroMonsta
+        cw.midiPerf(\gch8, \dn, 7);
+        cw.midiPerf(\gch8, \mm, 0);
 
         // TEMPO / CLOCK
         cw.tempoClock(\tempo, \clock, ~metro);

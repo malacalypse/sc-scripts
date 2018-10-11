@@ -86,10 +86,14 @@ if (~cw.isNil.not) {
   // cw.midiDevice(\rtpout,  "0-0");
   // cw.midiDevice(\rtpin,   "0-1");
   cw.midiDevice(\din,     "pisound");
+  cw.midiDevice(\mtr,     "minitaur");
+  cw.midiDevice(\mm,      "micromonsta");
 
   // Very simple note routing for now
   cw.midiPerf(\keyBus, \ks, 0);
   cw.midiPerf(\keyBus, \din, 0);
+  cw.midiPerf(\keyBus, \mtr, 0);
+  cw.midiPerf(\keyBus, \mm, 0);
   cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
 
   // Set up clocking
@@ -103,6 +107,8 @@ if (~cw.isNil.not) {
   cw.midiClock(\clock, \h9_max, outOnly:true);
   cw.midiClock(\clock, \moog, outOnly: true);
   cw.midiClock(\clock, \prophet, outOnly: true);
+  cw.midiClock(\clock, \mm, outOnly: true);
+  cw.midiClock(\clock, \mtr, outOnly: true);
 
   // Set up MIDI Fighter Twister as a matrix CC controller. 0 is top left, 3 is top right, 15 is bottom right.
   // MFT Setup: Stock. Only bank 0 is used. Other banks are available for custom mappings or other uses.
