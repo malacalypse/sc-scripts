@@ -140,7 +140,7 @@ var main = {
         // cw.midiDevice(\rtpout, "0-1", outOnly: true);
 
         // Very simple note routing for now
-        cw.midiPerf(\keyBus, \ks, 0);
+        // cw.midiPerf(\keyBus, \ks, 0); // KeyStep by USB is a pain in the rear at the moment...
         cw.midiPerf(\keyBus, \din, 0);
         cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
         // cw.midiPerf(\keyBus, \rtpout, 0);
