@@ -170,6 +170,8 @@ var main = {
         cw.midiClock(\clock, \h9max, outOnly:true);
         cw.midiClock(\clock, \moog, outOnly: true);
         cw.midiClock(\clock, \prophet, outOnly: true);
+        cw.midiClock(\clock, \mm, outOnly: true);
+        cw.midiClock(\clock, \mtr, outOnly: true);
 
         cw.saneValue(~mknob.(0, 0), 60/127);
         cw.warp(\bpm, ~mknob.(0, 0), mul: 1/127, add: -60/127);
