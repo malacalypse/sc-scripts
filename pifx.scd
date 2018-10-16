@@ -139,22 +139,34 @@ var main = {
         // cw.midiDevice(\rtpin, "0-0", inOnly: true);
         // cw.midiDevice(\rtpout, "0-1", outOnly: true);
 
-        // Very simple note routing for now
+        // Bulk input note routing
         // cw.midiPerf(\keyBus, \ks, 0); // KeyStep by USB is a pain in the rear at the moment...
         cw.midiPerf(\keyBus, \din, 0);
         cw.midiPerf(\keyBus, \dn, 9); // Autochannel Digitone
         // cw.midiPerf(\keyBus, \rtpout, 0);
         // cw.midiPerf(\keyBus, \rtpin, 0);
-        // Channel 5 is Moog - by default DN Trck Midi1 is also 5.
+
+        // <<< Keystep individual channels direct to other devices >>>
+        cw.midiPerf(\kb5, \ks, 4);
+        cw.midiPerf(\kb5, \moog, 4);
+        cw.midiPerf(\kb6, \ks, 5); 
+        cw.midiPerf(\kb6, \prophet, 5); 
+        cw.midiPerf(\kb7, \ks, 6); 
+        cw.midiPerf(\kb7, \mtr, 0); 
+        cw.midiPerf(\kb8, \ks, 7); 
+        cw.midiPerf(\kb8, \mm, 0); 
+ 
+        // <<< DIGITONE MIDI CHANNELS >>>
+        //     Sub 37: Ch 5
         cw.midiPerf(\gch5, \dn, 4);
         cw.midiPerf(\gch5, \moog, 4);
-        // Channel 6 is Rev2
+        //     Rev 2: Ch 6
         cw.midiPerf(\gch6, \dn, 5);
         cw.midiPerf(\gch6, \prophet, 5);
-        // Channel 7 is Minitaur
+        //     Minitaur: Ch 7
         cw.midiPerf(\gch7, \dn, 6);
         cw.midiPerf(\gch7, \mtr, 0);
-        // Channel 8 is MicroMonsta
+        //     Micromonsta: Ch 8
         cw.midiPerf(\gch8, \dn, 7);
         cw.midiPerf(\gch8, \mm, 0);
 
